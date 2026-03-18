@@ -1,17 +1,19 @@
 import { Link } from "react-router-dom";
-import { Trophy, Menu, X, User } from "lucide-react";
+import { Trophy, Menu, X, User, LogOut, LayoutDashboard, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SiteHeader = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { session, profile, isAdmin, signOut } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <Trophy className="h-7 w-7 text-primary" />
-          <span className="font-display text-xl font-bold text-foreground">ТворчествоКids</span>
+          <span className="font-display text-xl font-bold text-foreground">Студия Творчества</span>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
@@ -21,24 +23,36 @@ const SiteHeader = () => {
           <Link to="/gallery" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
             Галерея
           </Link>
-          <Link to="/about" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-            О нас
-          </Link>
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/login">Войти</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link to="/register">Регистрация</Link>
-          </Button>
+          {session ? (
+            <>
+              {isAdmin && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/admin"><Shield className="h-4 w-4 mr-1" />Админ</Link>
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/dashboard"><LayoutDashboard className="h-4 w-4 mr-1" />Кабинет</Link>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={signOut}>
+                <LogOut className="h-4 w-4 mr-1" />Выйти
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/login">Войти</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link to="/register">Регистрация</Link>
+              </Button>
+            </>
+          )}
         </div>
 
-        <button
-          className="md:hidden text-foreground"
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
+        <button className="md:hidden text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
           {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
@@ -48,12 +62,23 @@ const SiteHeader = () => {
           <nav className="flex flex-col gap-3">
             <Link to="/competitions" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Конкурсы</Link>
             <Link to="/gallery" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Галерея</Link>
-            <Link to="/about" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>О нас</Link>
             <hr className="border-border" />
-            <Link to="/login" className="text-sm font-medium" onClick={() => setMobileOpen(false)}>Войти</Link>
-            <Button size="sm" asChild>
-              <Link to="/register" onClick={() => setMobileOpen(false)}>Регистрация</Link>
-            </Button>
+            {session ? (
+              <>
+                {isAdmin && (
+                  <Link to="/admin" className="text-sm font-medium" onClick={() => setMobileOpen(false)}>Админ-панель</Link>
+                )}
+                <Link to="/dashboard" className="text-sm font-medium" onClick={() => setMobileOpen(false)}>Личный кабинет</Link>
+                <Button size="sm" variant="ghost" onClick={() => { signOut(); setMobileOpen(false); }}>Выйти</Button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-sm font-medium" onClick={() => setMobileOpen(false)}>Войти</Link>
+                <Button size="sm" asChild>
+                  <Link to="/register" onClick={() => setMobileOpen(false)}>Регистрация</Link>
+                </Button>
+              </>
+            )}
           </nav>
         </div>
       )}

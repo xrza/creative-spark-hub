@@ -9,7 +9,7 @@ const SiteFooter = () => {
           <div>
             <Link to="/" className="flex items-center gap-2 mb-4">
               <Trophy className="h-6 w-6 text-primary" />
-              <span className="font-display text-lg font-bold">ТворчествоКids</span>
+              <span className="font-display text-lg font-bold">Студия Творчества</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               Платформа дистанционных творческих конкурсов для детей и педагогов
@@ -21,7 +21,6 @@ const SiteFooter = () => {
             <nav className="flex flex-col gap-2">
               <Link to="/competitions" className="text-sm text-muted-foreground hover:text-foreground">Конкурсы</Link>
               <Link to="/gallery" className="text-sm text-muted-foreground hover:text-foreground">Галерея</Link>
-              <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground">О нас</Link>
             </nav>
           </div>
 
@@ -36,9 +35,9 @@ const SiteFooter = () => {
           <div>
             <h4 className="font-display text-sm font-bold mb-3">Контакты</h4>
             <div className="flex flex-col gap-2">
-              <a href="mailto:info@tvorchestvo-kids.ru" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <a href="mailto:info@studio-tvorchestva.ru" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                 <Mail className="h-4 w-4" />
-                info@tvorchestvo-kids.ru
+                info@studio-tvorchestva.ru
               </a>
               <a href="tel:+79001234567" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                 <Phone className="h-4 w-4" />
@@ -49,7 +48,7 @@ const SiteFooter = () => {
         </div>
 
         <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} ТворчествоКids. Все права защищены.
+          © {new Date().getFullYear()} Студия Творчества. Все права защищены.
         </div>
       </div>
     </footer>

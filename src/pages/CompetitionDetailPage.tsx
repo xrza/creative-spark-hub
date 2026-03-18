@@ -1,12 +1,40 @@
 import { useParams, Link } from "react-router-dom";
-import { mockCompetitions } from "@/data/mockData";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, Award, FileText, ArrowLeft } from "lucide-react";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+
+const statusLabels: Record<string, string> = { upcoming: "Скоро", active: "Идёт приём работ", judging: "Оценка", finished: "Завершён" };
+const statusColors: Record<string, string> = {
+  upcoming: "bg-accent text-accent-foreground",
+  active: "bg-success text-success-foreground",
+  judging: "bg-warning text-warning-foreground",
+  finished: "bg-muted text-muted-foreground",
+};
 
 const CompetitionDetailPage = () => {
   const { id } = useParams();
-  const competition = mockCompetitions.find((c) => c.id === id);
+
+  const { data: competition, isLoading } = useQuery({
+    queryKey: ["competition", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("competitions").select("*").eq("id", id!).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!competition) {
     return (
@@ -19,12 +47,7 @@ const CompetitionDetailPage = () => {
     );
   }
 
-  const statusLabels = { upcoming: "Скоро", active: "Идёт приём работ", ended: "Завершён" };
-  const statusColors = {
-    upcoming: "bg-accent text-accent-foreground",
-    active: "bg-success text-success-foreground",
-    ended: "bg-muted text-muted-foreground",
-  };
+  const nominations = competition.nomination || [];
 
   return (
     <div className="py-8">
@@ -34,8 +57,14 @@ const CompetitionDetailPage = () => {
         </Link>
 
         <div className="rounded-3xl overflow-hidden border shadow-playful">
-          <div className="relative aspect-[21/9] overflow-hidden">
-            <img src={competition.imageUrl} alt={competition.title} className="h-full w-full object-cover" />
+          <div className="relative aspect-[21/9] overflow-hidden bg-muted">
+            {competition.image_url ? (
+              <img src={competition.image_url} alt={competition.title} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <Award className="h-16 w-16 text-muted-foreground/30" />
+              </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6">
               <div className="flex gap-2 mb-3">
@@ -46,9 +75,7 @@ const CompetitionDetailPage = () => {
                   {competition.category === "children" ? "Для детей" : "Для педагогов"}
                 </span>
               </div>
-              <h1 className="font-display text-2xl font-black text-primary-foreground md:text-3xl">
-                {competition.title}
-              </h1>
+              <h1 className="font-display text-2xl font-black text-primary-foreground md:text-3xl">{competition.title}</h1>
             </div>
           </div>
 
@@ -57,15 +84,17 @@ const CompetitionDetailPage = () => {
               <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-4">
                 <Calendar className="h-5 w-5 text-primary" />
                 <div>
-                  <div className="text-xs text-muted-foreground">Сроки</div>
-                  <div className="text-sm font-semibold">{competition.startDate} — {competition.endDate}</div>
+                  <div className="text-xs text-muted-foreground">Дедлайн</div>
+                  <div className="text-sm font-semibold">
+                    {competition.deadline ? format(new Date(competition.deadline), "d MMMM yyyy", { locale: ru }) : "Без срока"}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-4">
                 <Users className="h-5 w-5 text-primary" />
                 <div>
-                  <div className="text-xs text-muted-foreground">Участников</div>
-                  <div className="text-sm font-semibold">{competition.participantsCount}</div>
+                  <div className="text-xs text-muted-foreground">Возраст</div>
+                  <div className="text-sm font-semibold">{competition.age_from}–{competition.age_to} лет</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-4">
@@ -73,7 +102,7 @@ const CompetitionDetailPage = () => {
                 <div>
                   <div className="text-xs text-muted-foreground">Взнос</div>
                   <div className="text-sm font-semibold">
-                    {competition.entryFee === 0 ? "Бесплатно" : `${competition.entryFee} ₽`}
+                    {(competition.entry_fee ?? 0) === 0 ? "Бесплатно" : `${competition.entry_fee} ₽`}
                   </div>
                 </div>
               </div>
@@ -82,58 +111,45 @@ const CompetitionDetailPage = () => {
             <div className="mb-8">
               <h2 className="font-display text-lg font-bold text-foreground mb-3">Описание</h2>
               <p className="text-muted-foreground leading-relaxed">{competition.description}</p>
-              <p className="mt-3 text-muted-foreground leading-relaxed">
-                Приглашаем всех желающих принять участие в нашем творческом конкурсе!
-                Работы принимаются в электронном виде. Каждый участник получает сертификат,
-                а победители — дипломы I, II и III степени.
-              </p>
+              {competition.prize && (
+                <p className="mt-3 text-muted-foreground leading-relaxed">
+                  <strong>Приз:</strong> {competition.prize}
+                </p>
+              )}
             </div>
 
-            <div className="mb-8">
-              <h2 className="font-display text-lg font-bold text-foreground mb-3">Номинации</h2>
-              <div className="flex flex-wrap gap-2">
-                {competition.nominations.map((nom) => (
-                  <Badge key={nom} variant="secondary" className="text-sm px-4 py-1.5">
-                    {nom}
-                  </Badge>
-                ))}
+            {nominations.length > 0 && (
+              <div className="mb-8">
+                <h2 className="font-display text-lg font-bold text-foreground mb-3">Номинации</h2>
+                <div className="flex flex-wrap gap-2">
+                  {nominations.map((nom) => (
+                    <Badge key={nom} variant="secondary" className="text-sm px-4 py-1.5">{nom}</Badge>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="mb-8">
               <h2 className="font-display text-lg font-bold text-foreground mb-3">Правила участия</h2>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <FileText className="mt-0.5 h-4 w-4 text-primary flex-shrink-0" />
-                  Работа должна быть выполнена участником самостоятельно
-                </li>
-                <li className="flex items-start gap-2">
-                  <FileText className="mt-0.5 h-4 w-4 text-primary flex-shrink-0" />
-                  Принимаются фото (JPG, PNG), видео (MP4) и документы (PDF, DOC)
-                </li>
-                <li className="flex items-start gap-2">
-                  <FileText className="mt-0.5 h-4 w-4 text-primary flex-shrink-0" />
-                  Одна работа в одной номинации от одного участника
-                </li>
-                <li className="flex items-start gap-2">
-                  <FileText className="mt-0.5 h-4 w-4 text-primary flex-shrink-0" />
-                  Результаты объявляются в течение 7 дней после окончания приёма работ
-                </li>
+                {["Работа должна быть выполнена участником самостоятельно", "Принимаются фото (JPG, PNG), видео (MP4) и документы (PDF, DOC)", "Одна работа в одной номинации от одного участника", "Результаты объявляются в течение 7 дней после окончания приёма работ"].map((rule) => (
+                  <li key={rule} className="flex items-start gap-2">
+                    <FileText className="mt-0.5 h-4 w-4 text-primary flex-shrink-0" />
+                    {rule}
+                  </li>
+                ))}
               </ul>
             </div>
 
-            {competition.status !== "ended" && (
+            {competition.status !== "finished" && (
               <div className="flex flex-wrap gap-3">
                 <Button size="lg" asChild>
-                  <Link to="/register">Подать заявку</Link>
-                </Button>
-                <Button size="lg" variant="outline">
-                  У меня есть промокод
+                  <Link to={`/competitions/${id}/pay`}>Подать заявку</Link>
                 </Button>
               </div>
             )}
 
-            {competition.status === "ended" && (
+            {competition.status === "finished" && (
               <div className="rounded-xl bg-muted/50 p-6 text-center">
                 <Award className="mx-auto h-8 w-8 text-primary mb-2" />
                 <p className="font-display font-bold text-foreground">Конкурс завершён</p>
