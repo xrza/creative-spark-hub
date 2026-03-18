@@ -14,16 +14,218 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      applications: {
+        Row: {
+          competition_id: string
+          created_at: string
+          diploma_url: string | null
+          file_url: string | null
+          id: string
+          nomination: string
+          organization: string | null
+          participant_age: number | null
+          participant_name: string
+          payment_status: string
+          status: string
+          teacher_name: string | null
+          user_id: string
+          work_title: string
+        }
+        Insert: {
+          competition_id: string
+          created_at?: string
+          diploma_url?: string | null
+          file_url?: string | null
+          id?: string
+          nomination?: string
+          organization?: string | null
+          participant_age?: number | null
+          participant_name: string
+          payment_status?: string
+          status?: string
+          teacher_name?: string | null
+          user_id: string
+          work_title: string
+        }
+        Update: {
+          competition_id?: string
+          created_at?: string
+          diploma_url?: string | null
+          file_url?: string | null
+          id?: string
+          nomination?: string
+          organization?: string | null
+          participant_age?: number | null
+          participant_name?: string
+          payment_status?: string
+          status?: string
+          teacher_name?: string | null
+          user_id?: string
+          work_title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitions: {
+        Row: {
+          age_from: number | null
+          age_to: number | null
+          category: string
+          created_at: string
+          deadline: string | null
+          description: string | null
+          entry_fee: number | null
+          id: string
+          image_url: string | null
+          nomination: string[] | null
+          prize: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          age_from?: number | null
+          age_to?: number | null
+          category: string
+          created_at?: string
+          deadline?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          id?: string
+          image_url?: string | null
+          nomination?: string[] | null
+          prize?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          age_from?: number | null
+          age_to?: number | null
+          category?: string
+          created_at?: string
+          deadline?: string | null
+          description?: string | null
+          entry_fee?: number | null
+          id?: string
+          image_url?: string | null
+          nomination?: string[] | null
+          prize?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          city: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          phone: string | null
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
+      results: {
+        Row: {
+          application_id: string
+          competition_id: string
+          created_at: string
+          id: string
+          place: number | null
+          score: number | null
+        }
+        Insert: {
+          application_id: string
+          competition_id: string
+          created_at?: string
+          id?: string
+          place?: number | null
+          score?: number | null
+        }
+        Update: {
+          application_id?: string
+          competition_id?: string
+          created_at?: string
+          id?: string
+          place?: number | null
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "results_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "results_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "participant" | "teacher" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +352,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["participant", "teacher", "admin"],
+    },
   },
 } as const

@@ -1,25 +1,46 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trophy } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-type Role = "parent" | "teacher";
+type Role = "participant" | "teacher";
 
 const RegisterPage = () => {
-  const [role, setRole] = useState<Role>("parent");
+  const [role, setRole] = useState<Role>("participant");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    childName: "",
-    childAge: "",
+    phone: "",
+    city: "",
   });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Will connect to backend later
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          full_name: formData.name,
+          role: role,
+        },
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Ошибка регистрации: " + error.message);
+    } else {
+      toast.success("Регистрация успешна! Проверьте email для подтверждения.");
+      navigate("/login");
+    }
   };
 
   const update = (field: string, value: string) =>
@@ -35,10 +56,9 @@ const RegisterPage = () => {
             <p className="mt-1 text-sm text-muted-foreground">Создайте аккаунт для участия в конкурсах</p>
           </div>
 
-          {/* Role selector */}
           <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
             {([
-              ["parent", "Я родитель"],
+              ["participant", "Я родитель"],
               ["teacher", "Я педагог"],
             ] as [Role, string][]).map(([val, label]) => (
               <button
@@ -46,9 +66,7 @@ const RegisterPage = () => {
                 type="button"
                 onClick={() => setRole(val)}
                 className={`rounded-lg py-2.5 text-sm font-semibold transition-all ${
-                  role === val
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                  role === val ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {label}
@@ -59,78 +77,33 @@ const RegisterPage = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="name">Ваше имя</Label>
-              <Input
-                id="name"
-                placeholder="Иванова Мария Петровна"
-                value={formData.name}
-                onChange={(e) => update("name", e.target.value)}
-                required
-              />
+              <Input id="name" placeholder="Иванова Мария Петровна" value={formData.name} onChange={(e) => update("name", e.target.value)} required />
             </div>
-
             <div>
               <Label htmlFor="reg-email">Email</Label>
-              <Input
-                id="reg-email"
-                type="email"
-                placeholder="example@mail.ru"
-                value={formData.email}
-                onChange={(e) => update("email", e.target.value)}
-                required
-              />
+              <Input id="reg-email" type="email" placeholder="example@mail.ru" value={formData.email} onChange={(e) => update("email", e.target.value)} required />
             </div>
-
             <div>
               <Label htmlFor="reg-password">Пароль</Label>
-              <Input
-                id="reg-password"
-                type="password"
-                placeholder="Минимум 8 символов"
-                value={formData.password}
-                onChange={(e) => update("password", e.target.value)}
-                required
-                minLength={8}
-              />
+              <Input id="reg-password" type="password" placeholder="Минимум 6 символов" value={formData.password} onChange={(e) => update("password", e.target.value)} required minLength={6} />
+            </div>
+            <div>
+              <Label htmlFor="phone">Телефон</Label>
+              <Input id="phone" type="tel" placeholder="+7 (900) 123-45-67" value={formData.phone} onChange={(e) => update("phone", e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="city">Город</Label>
+              <Input id="city" placeholder="Москва" value={formData.city} onChange={(e) => update("city", e.target.value)} />
             </div>
 
-            {role === "parent" && (
-              <>
-                <div>
-                  <Label htmlFor="childName">Имя ребёнка</Label>
-                  <Input
-                    id="childName"
-                    placeholder="Иванов Артём"
-                    value={formData.childName}
-                    onChange={(e) => update("childName", e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="childAge">Возраст ребёнка</Label>
-                  <Input
-                    id="childAge"
-                    type="number"
-                    placeholder="7"
-                    min="3"
-                    max="18"
-                    value={formData.childAge}
-                    onChange={(e) => update("childAge", e.target.value)}
-                    required
-                  />
-                </div>
-              </>
-            )}
-
-            <Button type="submit" className="w-full" size="lg">
-              Зарегистрироваться
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? "Регистрация..." : "Зарегистрироваться"}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Уже есть аккаунт?{" "}
-            <Link to="/login" className="font-semibold text-primary hover:underline">
-              Войти
-            </Link>
+            <Link to="/login" className="font-semibold text-primary hover:underline">Войти</Link>
           </div>
         </div>
       </div>

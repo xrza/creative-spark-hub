@@ -2,14 +2,27 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Star, Award, Palette, Users, ArrowRight } from "lucide-react";
 import CompetitionCard from "@/components/CompetitionCard";
-import { mockCompetitions } from "@/data/mockData";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import heroBanner from "@/assets/hero-banner.jpg";
 import trophyIcon from "@/assets/trophy-icon.png";
 
 const Index = () => {
-  const activeCompetitions = mockCompetitions.filter((c) => c.status === "active");
-  const upcomingCompetitions = mockCompetitions.filter((c) => c.status === "upcoming");
-  const featured = [...activeCompetitions, ...upcomingCompetitions].slice(0, 3);
+  const { data: competitions } = useQuery({
+    queryKey: ["competitions-featured"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("competitions")
+        .select("*")
+        .in("status", ["active", "upcoming"])
+        .order("created_at", { ascending: false })
+        .limit(3);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const featured = competitions || [];
 
   return (
     <div>
@@ -28,7 +41,7 @@ const Index = () => {
                 {" "}вашего ребёнка
               </h1>
               <p className="mt-4 text-lg text-muted-foreground md:text-xl">
-                Дистанционные творческие конкурсы для детей и педагогов.
+                Студия Творчества — дистанционные творческие конкурсы для детей и педагогов.
                 Участвуйте из любой точки России, получайте дипломы и призы!
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
@@ -59,16 +72,8 @@ const Index = () => {
             </div>
 
             <div className="relative hidden md:block">
-              <img
-                src={heroBanner}
-                alt="Дети рисуют и занимаются творчеством"
-                className="rounded-3xl shadow-playful"
-              />
-              <img
-                src={trophyIcon}
-                alt="Кубок"
-                className="absolute -bottom-6 -left-6 h-24 w-24 animate-float"
-              />
+              <img src={heroBanner} alt="Дети рисуют и занимаются творчеством" className="rounded-3xl shadow-playful" />
+              <img src={trophyIcon} alt="Кубок" className="absolute -bottom-6 -left-6 h-24 w-24 animate-float" />
             </div>
           </div>
         </div>
@@ -87,14 +92,11 @@ const Index = () => {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { step: "01", title: "Выберите конкурс", desc: "Найдите подходящий конкурс для вашего ребёнка или педагогический конкурс", color: "bg-primary/10 text-primary" },
-              { step: "02", title: "Зарегистрируйтесь", desc: "Создайте аккаунт и заполните данные участника", color: "bg-secondary/10 text-secondary" },
+              { step: "02", title: "Оплатите участие", desc: "Оплатите организационный взнос или используйте промокод", color: "bg-secondary/10 text-secondary" },
               { step: "03", title: "Отправьте работу", desc: "Загрузите фото, видео или документ с творческой работой", color: "bg-accent/20 text-accent-foreground" },
               { step: "04", title: "Получите диплом", desc: "Дождитесь результатов и скачайте диплом победителя", color: "bg-success/10 text-success" },
             ].map(({ step, title, desc, color }) => (
-              <div
-                key={step}
-                className="group rounded-2xl border bg-card p-6 transition-all duration-300 hover:shadow-playful hover:-translate-y-1"
-              >
+              <div key={step} className="group rounded-2xl border bg-card p-6 transition-all duration-300 hover:shadow-playful hover:-translate-y-1">
                 <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl font-display text-lg font-black ${color}`}>
                   {step}
                 </div>
@@ -107,35 +109,26 @@ const Index = () => {
       </section>
 
       {/* Featured competitions */}
-      <section className="bg-muted/50 py-16 md:py-20">
-        <div className="container">
-          <div className="flex items-end justify-between mb-10">
-            <div>
-              <h2 className="font-display text-3xl font-black text-foreground md:text-4xl">
-                Актуальные конкурсы
-              </h2>
-              <p className="mt-2 text-muted-foreground">
-                Примите участие прямо сейчас
-              </p>
+      {featured.length > 0 && (
+        <section className="bg-muted/50 py-16 md:py-20">
+          <div className="container">
+            <div className="flex items-end justify-between mb-10">
+              <div>
+                <h2 className="font-display text-3xl font-black text-foreground md:text-4xl">Актуальные конкурсы</h2>
+                <p className="mt-2 text-muted-foreground">Примите участие прямо сейчас</p>
+              </div>
+              <Button variant="outline" asChild className="hidden sm:inline-flex">
+                <Link to="/competitions">Все конкурсы →</Link>
+              </Button>
             </div>
-            <Button variant="outline" asChild className="hidden sm:inline-flex">
-              <Link to="/competitions">Все конкурсы →</Link>
-            </Button>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {featured.map((comp) => (
+                <CompetitionCard key={comp.id} competition={comp} />
+              ))}
+            </div>
           </div>
-
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((comp) => (
-              <CompetitionCard key={comp.id} {...comp} />
-            ))}
-          </div>
-
-          <div className="mt-8 text-center sm:hidden">
-            <Button variant="outline" asChild>
-              <Link to="/competitions">Все конкурсы →</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA Section */}
       <section className="py-16 md:py-20">
