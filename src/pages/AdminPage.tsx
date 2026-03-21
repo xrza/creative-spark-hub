@@ -4,18 +4,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trophy, FileText, BarChart3, Trash2, Edit } from "lucide-react";
+import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload } from "lucide-react";
 import { toast } from "sonner";
+
+const CHILDREN_CATEGORIES = [
+  { value: "preschool", label: "Дошкольники" },
+  { value: "primary", label: "Младшие школьники" },
+  { value: "middle", label: "Средние школьники" },
+  { value: "senior", label: "Старшие школьники" },
+];
+
+const TEACHER_CATEGORIES = [
+  { value: "methods", label: "для педагогов: Методические разработки" },
+  { value: "notes", label: "для педагогов: Конспекты" },
+  { value: "scenarios", label: "для педагогов: Сценарии" },
+];
+
+const ALL_CATEGORIES = [...CHILDREN_CATEGORIES, ...TEACHER_CATEGORIES];
 
 const AdminPage = () => {
   const queryClient = useQueryClient();
 
-  // Competitions
   const { data: competitions } = useQuery({
     queryKey: ["admin-competitions"],
     queryFn: async () => {
@@ -25,7 +38,6 @@ const AdminPage = () => {
     },
   });
 
-  // Applications
   const { data: applications } = useQuery({
     queryKey: ["admin-applications"],
     queryFn: async () => {
@@ -35,34 +47,49 @@ const AdminPage = () => {
     },
   });
 
-  // Stats
   const totalCompetitions = competitions?.length || 0;
   const totalApplications = applications?.length || 0;
   const uniqueParticipants = new Set(applications?.map((a: any) => a.user_id)).size;
 
-  // Competition form
   const [compForm, setCompForm] = useState({
-    title: "", description: "", category: "children", nomination: "",
-    age_from: "3", age_to: "18", deadline: "", entry_fee: "0", prize: "", image_url: "", status: "active",
+    title: "", description: "", category: "preschool", nomination: "",
+    duration_days: "30", entry_fee: "0", prize: "", status: "active",
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [compDialogOpen, setCompDialogOpen] = useState(false);
   const [editingCompId, setEditingCompId] = useState<string | null>(null);
 
   const saveCompetition = useMutation({
     mutationFn: async () => {
-      const payload = {
+      let image_url = "";
+
+      if (imageFile) {
+        const ext = imageFile.name.split(".").pop();
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from("competitions").upload(path, imageFile);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("competitions").getPublicUrl(path);
+        image_url = urlData.publicUrl;
+      }
+
+      const durationDays = parseInt(compForm.duration_days) || 30;
+      const now = new Date();
+      const deadline = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+      const payload: any = {
         title: compForm.title,
         description: compForm.description,
         category: compForm.category,
         nomination: compForm.nomination.split(",").map((s) => s.trim()).filter(Boolean),
-        age_from: parseInt(compForm.age_from),
-        age_to: parseInt(compForm.age_to),
-        deadline: compForm.deadline || null,
+        deadline: deadline.toISOString(),
+        duration_days: durationDays,
         entry_fee: parseInt(compForm.entry_fee),
         prize: compForm.prize,
-        image_url: compForm.image_url,
         status: compForm.status,
       };
+
+      if (image_url) payload.image_url = image_url;
+
       if (editingCompId) {
         const { error } = await supabase.from("competitions").update(payload).eq("id", editingCompId);
         if (error) throw error;
@@ -92,7 +119,8 @@ const AdminPage = () => {
   });
 
   const resetCompForm = () => {
-    setCompForm({ title: "", description: "", category: "children", nomination: "", age_from: "3", age_to: "18", deadline: "", entry_fee: "0", prize: "", image_url: "", status: "active" });
+    setCompForm({ title: "", description: "", category: "preschool", nomination: "", duration_days: "30", entry_fee: "0", prize: "", status: "active" });
+    setImageFile(null);
     setEditingCompId(null);
   };
 
@@ -102,17 +130,22 @@ const AdminPage = () => {
       description: comp.description || "",
       category: comp.category,
       nomination: (comp.nomination || []).join(", "),
-      age_from: String(comp.age_from ?? 3),
-      age_to: String(comp.age_to ?? 18),
-      deadline: comp.deadline ? new Date(comp.deadline).toISOString().slice(0, 16) : "",
+      duration_days: String(comp.duration_days ?? 30),
       entry_fee: String(comp.entry_fee ?? 0),
       prize: comp.prize || "",
-      image_url: comp.image_url || "",
       status: comp.status,
     });
+    setImageFile(null);
     setEditingCompId(comp.id);
     setCompDialogOpen(true);
   };
+
+  const getCompStatus = (comp: any) => {
+    if (comp.deadline && new Date(comp.deadline) < new Date()) return "ended";
+    return comp.status;
+  };
+
+  const getCategoryLabel = (value: string) => ALL_CATEGORIES.find((c) => c.value === value)?.label || value;
 
   // Application status update
   const updateAppStatus = useMutation({
@@ -126,7 +159,6 @@ const AdminPage = () => {
     },
   });
 
-  // Results: assign place
   const assignPlace = useMutation({
     mutationFn: async ({ applicationId, competitionId, place, score }: { applicationId: string; competitionId: string; place: number; score: number }) => {
       const { error } = await supabase.from("results").upsert(
@@ -135,13 +167,10 @@ const AdminPage = () => {
       );
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success("Результат сохранён");
-    },
+    onSuccess: () => toast.success("Результат сохранён"),
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Filter apps by competition
   const [filterCompId, setFilterCompId] = useState<string>("all");
   const filteredApps = filterCompId === "all" ? applications : applications?.filter((a: any) => a.competition_id === filterCompId);
 
@@ -150,7 +179,6 @@ const AdminPage = () => {
       <div className="container">
         <h1 className="font-display text-3xl font-black text-foreground mb-8">Админ-панель</h1>
 
-        {/* Stats */}
         <div className="grid gap-4 sm:grid-cols-3 mb-8">
           {[
             { icon: Trophy, label: "Конкурсов", value: totalCompetitions },
@@ -172,7 +200,6 @@ const AdminPage = () => {
             <TabsTrigger value="results">Результаты</TabsTrigger>
           </TabsList>
 
-          {/* Competitions Tab */}
           <TabsContent value="competitions">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-display text-lg font-bold">Управление конкурсами</h2>
@@ -187,36 +214,47 @@ const AdminPage = () => {
                   <div className="space-y-3 mt-4">
                     <div><Label>Название *</Label><Input value={compForm.title} onChange={(e) => setCompForm({ ...compForm, title: e.target.value })} /></div>
                     <div><Label>Описание</Label><Textarea value={compForm.description} onChange={(e) => setCompForm({ ...compForm, description: e.target.value })} /></div>
-                    <div><Label>Категория</Label>
+                    <div>
+                      <Label>Категория</Label>
                       <Select value={compForm.category} onValueChange={(v) => setCompForm({ ...compForm, category: v })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="children">Для детей</SelectItem>
-                          <SelectItem value="teachers">Для педагогов</SelectItem>
+                          <SelectItem disabled value="__children_header" className="font-bold text-foreground">Для детей</SelectItem>
+                          {CHILDREN_CATEGORIES.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                          ))}
+                          <SelectItem disabled value="__teacher_header" className="font-bold text-foreground">Для педагогов</SelectItem>
+                          {TEACHER_CATEGORIES.map((c) => (
+                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div><Label>Номинации (через запятую)</Label><Input value={compForm.nomination} onChange={(e) => setCompForm({ ...compForm, nomination: e.target.value })} placeholder="Рисунок, Поделка, Фотография" /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><Label>Возраст от</Label><Input type="number" value={compForm.age_from} onChange={(e) => setCompForm({ ...compForm, age_from: e.target.value })} /></div>
-                      <div><Label>Возраст до</Label><Input type="number" value={compForm.age_to} onChange={(e) => setCompForm({ ...compForm, age_to: e.target.value })} /></div>
-                    </div>
-                    <div><Label>Дедлайн</Label><Input type="datetime-local" value={compForm.deadline} onChange={(e) => setCompForm({ ...compForm, deadline: e.target.value })} /></div>
+                    <div><Label>Длительность (дней)</Label><Input type="number" min={1} max={365} value={compForm.duration_days} onChange={(e) => setCompForm({ ...compForm, duration_days: e.target.value })} /></div>
                     <div><Label>Взнос (₽)</Label><Input type="number" value={compForm.entry_fee} onChange={(e) => setCompForm({ ...compForm, entry_fee: e.target.value })} /></div>
                     <div><Label>Приз</Label><Input value={compForm.prize} onChange={(e) => setCompForm({ ...compForm, prize: e.target.value })} /></div>
-                    <div><Label>URL изображения</Label><Input value={compForm.image_url} onChange={(e) => setCompForm({ ...compForm, image_url: e.target.value })} /></div>
-                    <div><Label>Статус</Label>
+                    <div>
+                      <Label>Изображение</Label>
+                      <div className="mt-1">
+                        <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-muted-foreground/30 p-4 hover:bg-muted/50 transition-colors">
+                          <Upload className="h-5 w-5 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{imageFile ? imageFile.name : "Выберите файл..."}</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Статус</Label>
                       <Select value={compForm.status} onValueChange={(v) => setCompForm({ ...compForm, status: v })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="active">Активный</SelectItem>
-                          <SelectItem value="upcoming">Скоро</SelectItem>
-                          <SelectItem value="judging">Оценка</SelectItem>
                           <SelectItem value="finished">Завершён</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button className="w-full" onClick={() => saveCompetition.mutate()} disabled={saveCompetition.isPending}>
+                    <Button className="w-full" onClick={() => saveCompetition.mutate()} disabled={saveCompetition.isPending || !compForm.title}>
                       {saveCompetition.isPending ? "Сохранение..." : editingCompId ? "Сохранить" : "Создать"}
                     </Button>
                   </div>
@@ -225,29 +263,27 @@ const AdminPage = () => {
             </div>
 
             <div className="space-y-3">
-              {competitions?.map((comp: any) => (
-                <div key={comp.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
-                  <div>
-                    <div className="font-semibold">{comp.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {comp.category === "children" ? "Для детей" : "Для педагогов"} · {comp.status} · {comp.entry_fee ?? 0} ₽
+              {competitions?.map((comp: any) => {
+                const status = getCompStatus(comp);
+                return (
+                  <div key={comp.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
+                    <div>
+                      <div className="font-semibold">{comp.title}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {getCategoryLabel(comp.category)} · {status === "ended" ? "Завершён" : "Активный"} · {comp.entry_fee ?? 0} ₽ · {comp.duration_days ?? 30} дн.
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => editComp(comp)}><Edit className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteCompetition.mutate(comp.id)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => editComp(comp)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => deleteCompetition.mutate(comp.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {!competitions?.length && <p className="text-muted-foreground text-sm">Конкурсов пока нет</p>}
             </div>
           </TabsContent>
 
-          {/* Applications Tab */}
           <TabsContent value="applications">
             <div className="flex items-center gap-4 mb-4">
               <h2 className="font-display text-lg font-bold">Модерация заявок</h2>
@@ -269,7 +305,7 @@ const AdminPage = () => {
                     <div>
                       <div className="font-semibold text-sm">{app.work_title}</div>
                       <div className="text-xs text-muted-foreground">
-                        {app.participant_name}, {app.participant_age} лет · {app.nomination} · {app.competitions?.title}
+                        {app.participant_name}{app.participant_age ? `, ${app.participant_age} лет` : ""} · {app.nomination} · {app.competitions?.title}
                       </div>
                       {app.file_url && (
                         <a href={app.file_url} target="_blank" className="text-xs text-primary hover:underline">Просмотреть работу</a>
@@ -292,7 +328,6 @@ const AdminPage = () => {
             </div>
           </TabsContent>
 
-          {/* Results Tab */}
           <TabsContent value="results">
             <h2 className="font-display text-lg font-bold mb-4">Результаты и оценки</h2>
             <div className="space-y-3">
