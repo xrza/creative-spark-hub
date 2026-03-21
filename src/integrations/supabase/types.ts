@@ -99,6 +99,7 @@ export type Database = {
           created_at: string
           deadline: string | null
           description: string | null
+          duration_days: number | null
           entry_fee: number | null
           id: string
           image_url: string | null
@@ -114,6 +115,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          duration_days?: number | null
           entry_fee?: number | null
           id?: string
           image_url?: string | null
@@ -129,6 +131,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          duration_days?: number | null
           entry_fee?: number | null
           id?: string
           image_url?: string | null
