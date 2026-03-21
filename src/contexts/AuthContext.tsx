@@ -40,12 +40,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .single();
     if (data) {
       setProfile(data as Profile);
-      // Check admin via user_roles table
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
-      setIsAdmin(roles?.some((r) => r.role === "admin") ?? false);
+      // Check admin via admins table by email
+      const { data: adminRow } = await supabase
+        .from("admins")
+        .select("id")
+        .eq("email", data.email)
+        .maybeSingle();
+      setIsAdmin(!!adminRow);
     }
   };
 
