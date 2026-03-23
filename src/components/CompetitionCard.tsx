@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Calendar, Users, Award } from "lucide-react";
+import { Calendar, Award } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -12,6 +12,7 @@ interface CompetitionCardProps {
     category: string;
     nomination: string[] | null;
     deadline: string | null;
+    start_date?: string | null;
     entry_fee: number | null;
     image_url: string | null;
     status: string;
@@ -19,23 +20,35 @@ interface CompetitionCardProps {
   };
 }
 
-const statusLabels: Record<string, string> = {
-  upcoming: "Скоро",
-  active: "Идёт приём работ",
-  judging: "Оценка",
-  finished: "Завершён",
-};
-
-const statusColors: Record<string, string> = {
-  upcoming: "bg-accent text-accent-foreground",
-  active: "bg-success text-success-foreground",
-  judging: "bg-warning text-warning-foreground",
-  finished: "bg-muted text-muted-foreground",
+const audienceLabels: Record<string, string> = {
+  children: "Для детей",
+  teachers: "Для педагогов",
+  all: "Для всех",
 };
 
 const CompetitionCard = ({ competition }: CompetitionCardProps) => {
-  const { id, title, description, category, nomination, deadline, entry_fee, image_url, status } = competition;
+  const { id, title, description, category, nomination, deadline, start_date, entry_fee, image_url } = competition;
   const nominations = nomination || [];
+
+  const now = new Date();
+  const computedStatus = start_date && new Date(start_date) > now
+    ? "upcoming"
+    : deadline && new Date(deadline) < now
+      ? "finished"
+      : "active";
+
+  const statusLabels: Record<string, string> = { upcoming: "Скоро", active: "Идёт приём работ", finished: "Завершён" };
+  const statusColors: Record<string, string> = {
+    upcoming: "bg-accent text-accent-foreground",
+    active: "bg-success text-success-foreground",
+    finished: "bg-muted text-muted-foreground",
+  };
+
+  const dateRange = start_date && deadline
+    ? `${format(new Date(start_date), "d MMM", { locale: ru })} – ${format(new Date(deadline), "d MMM yyyy", { locale: ru })}`
+    : deadline
+      ? `до ${format(new Date(deadline), "d MMM yyyy", { locale: ru })}`
+      : "Без срока";
 
   return (
     <Link
@@ -51,18 +64,17 @@ const CompetitionCard = ({ competition }: CompetitionCardProps) => {
           </div>
         )}
         <div className="absolute top-3 left-3 flex gap-2">
-          <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColors[status] || statusColors.active}`}>
-            {statusLabels[status] || status}
+          <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColors[computedStatus]}`}>
+            {statusLabels[computedStatus]}
           </span>
           <span className="rounded-full bg-card/90 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-foreground">
-            {category === "children" ? "Для детей" : "Для педагогов"}
+            {audienceLabels[category] || category}
           </span>
         </div>
       </div>
 
       <div className="p-5">
         <h3 className="font-display text-lg font-bold text-foreground mb-2 line-clamp-2">{title}</h3>
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
 
         <div className="flex flex-wrap gap-1.5 mb-4">
           {nominations.slice(0, 3).map((nom) => (
@@ -73,11 +85,9 @@ const CompetitionCard = ({ competition }: CompetitionCardProps) => {
           )}
         </div>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>{deadline ? format(new Date(deadline), "d MMM yyyy", { locale: ru }) : "Без срока"}</span>
-          </div>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Calendar className="h-3.5 w-3.5" />
+          <span>{dateRange}</span>
         </div>
 
         <div className="mt-3 pt-3 border-t flex items-center justify-between">

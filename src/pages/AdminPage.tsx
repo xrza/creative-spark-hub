@@ -8,23 +8,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
-const CHILDREN_CATEGORIES = [
-  { value: "preschool", label: "Дошкольники" },
-  { value: "primary", label: "Младшие школьники" },
-  { value: "middle", label: "Средние школьники" },
-  { value: "senior", label: "Старшие школьники" },
+const AUDIENCES = [
+  { value: "children", label: "Для детей" },
+  { value: "teachers", label: "Для педагогов" },
+  { value: "all", label: "Для всех" },
 ];
-
-const TEACHER_CATEGORIES = [
-  { value: "methods", label: "для педагогов: Методические разработки" },
-  { value: "notes", label: "для педагогов: Конспекты" },
-  { value: "scenarios", label: "для педагогов: Сценарии" },
-];
-
-const ALL_CATEGORIES = [...CHILDREN_CATEGORIES, ...TEACHER_CATEGORIES];
 
 const AdminPage = () => {
   const queryClient = useQueryClient();
@@ -52,9 +48,11 @@ const AdminPage = () => {
   const uniqueParticipants = new Set(applications?.map((a: any) => a.user_id)).size;
 
   const [compForm, setCompForm] = useState({
-    title: "", description: "", category: "preschool", nomination: "",
-    duration_days: "30", entry_fee: "0", prize: "", status: "active",
+    title: "", description: "", category: "children", nomination: "",
+    entry_fee: "0", prize: "", status: "active",
   });
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [compDialogOpen, setCompDialogOpen] = useState(false);
   const [editingCompId, setEditingCompId] = useState<string | null>(null);
@@ -72,17 +70,13 @@ const AdminPage = () => {
         image_url = urlData.publicUrl;
       }
 
-      const durationDays = parseInt(compForm.duration_days) || 30;
-      const now = new Date();
-      const deadline = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
       const payload: any = {
         title: compForm.title,
         description: compForm.description,
         category: compForm.category,
         nomination: compForm.nomination.split(",").map((s) => s.trim()).filter(Boolean),
-        deadline: deadline.toISOString(),
-        duration_days: durationDays,
+        start_date: startDate ? startDate.toISOString() : null,
+        deadline: endDate ? endDate.toISOString() : null,
         entry_fee: parseInt(compForm.entry_fee),
         prize: compForm.prize,
         status: compForm.status,
@@ -119,8 +113,10 @@ const AdminPage = () => {
   });
 
   const resetCompForm = () => {
-    setCompForm({ title: "", description: "", category: "preschool", nomination: "", duration_days: "30", entry_fee: "0", prize: "", status: "active" });
+    setCompForm({ title: "", description: "", category: "children", nomination: "", entry_fee: "0", prize: "", status: "active" });
     setImageFile(null);
+    setStartDate(undefined);
+    setEndDate(undefined);
     setEditingCompId(null);
   };
 
@@ -130,24 +126,26 @@ const AdminPage = () => {
       description: comp.description || "",
       category: comp.category,
       nomination: (comp.nomination || []).join(", "),
-      duration_days: String(comp.duration_days ?? 30),
       entry_fee: String(comp.entry_fee ?? 0),
       prize: comp.prize || "",
       status: comp.status,
     });
+    setStartDate(comp.start_date ? new Date(comp.start_date) : undefined);
+    setEndDate(comp.deadline ? new Date(comp.deadline) : undefined);
     setImageFile(null);
     setEditingCompId(comp.id);
     setCompDialogOpen(true);
   };
 
   const getCompStatus = (comp: any) => {
-    if (comp.deadline && new Date(comp.deadline) < new Date()) return "ended";
-    return comp.status;
+    const now = new Date();
+    if (comp.start_date && new Date(comp.start_date) > now) return "upcoming";
+    if (comp.deadline && new Date(comp.deadline) < now) return "finished";
+    return "active";
   };
 
-  const getCategoryLabel = (value: string) => ALL_CATEGORIES.find((c) => c.value === value)?.label || value;
+  const getAudienceLabel = (value: string) => AUDIENCES.find((a) => a.value === value)?.label || value;
 
-  // Application status update
   const updateAppStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase.from("applications").update({ status }).eq("id", id);
@@ -215,23 +213,49 @@ const AdminPage = () => {
                     <div><Label>Название *</Label><Input value={compForm.title} onChange={(e) => setCompForm({ ...compForm, title: e.target.value })} /></div>
                     <div><Label>Описание</Label><Textarea value={compForm.description} onChange={(e) => setCompForm({ ...compForm, description: e.target.value })} /></div>
                     <div>
-                      <Label>Категория</Label>
+                      <Label>Аудитория</Label>
                       <Select value={compForm.category} onValueChange={(v) => setCompForm({ ...compForm, category: v })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem disabled value="__children_header" className="font-bold text-foreground">Для детей</SelectItem>
-                          {CHILDREN_CATEGORIES.map((c) => (
-                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                          ))}
-                          <SelectItem disabled value="__teacher_header" className="font-bold text-foreground">Для педагогов</SelectItem>
-                          {TEACHER_CATEGORIES.map((c) => (
-                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                          {AUDIENCES.map((a) => (
+                            <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div><Label>Номинации (через запятую)</Label><Input value={compForm.nomination} onChange={(e) => setCompForm({ ...compForm, nomination: e.target.value })} placeholder="Рисунок, Поделка, Фотография" /></div>
-                    <div><Label>Длительность (дней)</Label><Input type="number" min={1} max={365} value={compForm.duration_days} onChange={(e) => setCompForm({ ...compForm, duration_days: e.target.value })} /></div>
+                    <div><Label>Номинация</Label><Input value={compForm.nomination} onChange={(e) => setCompForm({ ...compForm, nomination: e.target.value })} placeholder="Рисунок, Поделка, Фотография" /></div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Дата начала</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !startDate && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {startDate ? format(startDate, "d MMM yyyy", { locale: ru }) : "Выберите"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus className="p-3 pointer-events-auto" />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label>Дата окончания</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !endDate && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {endDate ? format(endDate, "d MMM yyyy", { locale: ru }) : "Выберите"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={endDate} onSelect={setEndDate} disabled={(date) => startDate ? date <= startDate : false} initialFocus className="p-3 pointer-events-auto" />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
                     <div><Label>Взнос (₽)</Label><Input type="number" value={compForm.entry_fee} onChange={(e) => setCompForm({ ...compForm, entry_fee: e.target.value })} /></div>
                     <div><Label>Приз</Label><Input value={compForm.prize} onChange={(e) => setCompForm({ ...compForm, prize: e.target.value })} /></div>
                     <div>
@@ -265,12 +289,16 @@ const AdminPage = () => {
             <div className="space-y-3">
               {competitions?.map((comp: any) => {
                 const status = getCompStatus(comp);
+                const statusLabel = status === "upcoming" ? "Скоро" : status === "finished" ? "Завершён" : "Активный";
                 return (
                   <div key={comp.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
                     <div>
                       <div className="font-semibold">{comp.title}</div>
                       <div className="text-xs text-muted-foreground">
-                        {getCategoryLabel(comp.category)} · {status === "ended" ? "Завершён" : "Активный"} · {comp.entry_fee ?? 0} ₽ · {comp.duration_days ?? 30} дн.
+                        {getAudienceLabel(comp.category)} · {statusLabel} · {comp.entry_fee ?? 0} ₽
+                        {comp.start_date && comp.deadline && (
+                          <> · {format(new Date(comp.start_date), "d.MM", { locale: ru })} – {format(new Date(comp.deadline), "d.MM.yyyy", { locale: ru })}</>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -305,7 +333,7 @@ const AdminPage = () => {
                     <div>
                       <div className="font-semibold text-sm">{app.work_title}</div>
                       <div className="text-xs text-muted-foreground">
-                        {app.participant_name}{app.participant_age ? `, ${app.participant_age} лет` : ""} · {app.nomination} · {app.competitions?.title}
+                        {app.participant_name} · {app.nomination} · {app.competitions?.title}
                       </div>
                       {app.file_url && (
                         <a href={app.file_url} target="_blank" className="text-xs text-primary hover:underline">Просмотреть работу</a>
@@ -358,24 +386,9 @@ const ResultRow = ({ app, onAssign }: { app: any; onAssign: any }) => {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Input className="w-20" type="number" placeholder="Балл" value={score} onChange={(e) => setScore(e.target.value)} />
-        <Select value={place} onValueChange={setPlace}>
-          <SelectTrigger className="w-[120px]"><SelectValue placeholder="Место" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">1 место</SelectItem>
-            <SelectItem value="2">2 место</SelectItem>
-            <SelectItem value="3">3 место</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button size="sm" onClick={() => {
-          if (!place && !score) return;
-          onAssign.mutate({
-            applicationId: app.id,
-            competitionId: app.competition_id,
-            place: parseInt(place) || 0,
-            score: parseFloat(score) || 0,
-          });
-        }} disabled={onAssign.isPending}>
+        <Input placeholder="Место" type="number" className="w-20" value={place} onChange={(e) => setPlace(e.target.value)} />
+        <Input placeholder="Баллы" type="number" className="w-20" value={score} onChange={(e) => setScore(e.target.value)} />
+        <Button size="sm" onClick={() => onAssign.mutate({ applicationId: app.id, competitionId: app.competition_id, place: parseInt(place), score: parseFloat(score) })} disabled={!place}>
           Сохранить
         </Button>
       </div>
