@@ -130,6 +130,27 @@ const Index = () => {
         </section>
       )}
 
+      {/* News Section */}
+      <section className="py-16 md:py-20">
+        <div className="container">
+          <h2 className="text-center font-display text-3xl font-black text-foreground md:text-4xl">Новости</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">Последние события и обновления</p>
+          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            {[
+              { title: "Открыт приём работ на весенние конкурсы!", date: "20 марта 2026", text: "Новые конкурсы для дошкольников и младших школьников уже доступны. Спешите подать заявку!" },
+              { title: "Результаты зимнего сезона опубликованы", date: "15 марта 2026", text: "Поздравляем всех победителей! Дипломы доступны в личном кабинете участников." },
+              { title: "Обновление галереи работ", date: "10 марта 2026", text: "Теперь вы можете ставить лайки и оставлять комментарии к работам в галерее." },
+            ].map(({ title, date, text }) => (
+              <div key={title} className="rounded-2xl border bg-card p-6 transition-all hover:shadow-playful">
+                <div className="text-xs text-muted-foreground mb-2">{date}</div>
+                <h3 className="font-display text-base font-bold text-foreground mb-2">{title}</h3>
+                <p className="text-sm text-muted-foreground">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-16 md:py-20">
         <div className="container">

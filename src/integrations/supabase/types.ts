@@ -91,6 +91,41 @@ export type Database = {
           },
         ]
       }
+      comments: {
+        Row: {
+          application_id: string
+          author_name: string
+          content: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          author_name?: string
+          content: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string
+          author_name?: string
+          content?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitions: {
         Row: {
           age_from: number | null
@@ -105,6 +140,7 @@ export type Database = {
           image_url: string | null
           nomination: string[] | null
           prize: string | null
+          start_date: string | null
           status: string
           title: string
         }
@@ -121,6 +157,7 @@ export type Database = {
           image_url?: string | null
           nomination?: string[] | null
           prize?: string | null
+          start_date?: string | null
           status?: string
           title: string
         }
@@ -137,10 +174,40 @@ export type Database = {
           image_url?: string | null
           nomination?: string[] | null
           prize?: string | null
+          start_date?: string | null
           status?: string
           title?: string
         }
         Relationships: []
+      }
+      likes: {
+        Row: {
+          application_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "likes_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

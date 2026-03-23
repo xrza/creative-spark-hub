@@ -3,17 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, Award, FileText, ArrowLeft } from "lucide-react";
+import { Calendar, Award, FileText, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
-const statusLabels: Record<string, string> = { upcoming: "Скоро", active: "Идёт приём работ", judging: "Оценка", finished: "Завершён" };
-const statusColors: Record<string, string> = {
-  upcoming: "bg-accent text-accent-foreground",
-  active: "bg-success text-success-foreground",
-  judging: "bg-warning text-warning-foreground",
-  finished: "bg-muted text-muted-foreground",
-};
+const audienceLabels: Record<string, string> = { children: "Для детей", teachers: "Для педагогов", all: "Для всех" };
 
 const CompetitionDetailPage = () => {
   const { id } = useParams();
@@ -48,6 +42,23 @@ const CompetitionDetailPage = () => {
   }
 
   const nominations = competition.nomination || [];
+  const now = new Date();
+  const startDate = (competition as any).start_date ? new Date((competition as any).start_date) : null;
+  const endDate = competition.deadline ? new Date(competition.deadline) : null;
+  const computedStatus = startDate && startDate > now ? "upcoming" : endDate && endDate < now ? "finished" : "active";
+
+  const statusLabels: Record<string, string> = { upcoming: "Скоро", active: "Идёт приём работ", finished: "Завершён" };
+  const statusColors: Record<string, string> = {
+    upcoming: "bg-accent text-accent-foreground",
+    active: "bg-success text-success-foreground",
+    finished: "bg-muted text-muted-foreground",
+  };
+
+  const dateRange = startDate && endDate
+    ? `${format(startDate, "d MMMM yyyy", { locale: ru })} — ${format(endDate, "d MMMM yyyy", { locale: ru })}`
+    : endDate
+      ? `до ${format(endDate, "d MMMM yyyy", { locale: ru })}`
+      : "Без срока";
 
   return (
     <div className="py-8">
@@ -68,11 +79,11 @@ const CompetitionDetailPage = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6">
               <div className="flex gap-2 mb-3">
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColors[competition.status]}`}>
-                  {statusLabels[competition.status]}
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColors[computedStatus]}`}>
+                  {statusLabels[computedStatus]}
                 </span>
                 <span className="rounded-full bg-card/90 backdrop-blur-sm px-3 py-1 text-xs font-semibold">
-                  {competition.category === "children" ? "Для детей" : "Для педагогов"}
+                  {audienceLabels[competition.category] || competition.category}
                 </span>
               </div>
               <h1 className="font-display text-2xl font-black text-primary-foreground md:text-3xl">{competition.title}</h1>
@@ -80,21 +91,12 @@ const CompetitionDetailPage = () => {
           </div>
 
           <div className="p-6 md:p-8">
-            <div className="grid gap-4 sm:grid-cols-3 mb-8">
+            <div className="grid gap-4 sm:grid-cols-2 mb-8">
               <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-4">
                 <Calendar className="h-5 w-5 text-primary" />
                 <div>
-                  <div className="text-xs text-muted-foreground">Дедлайн</div>
-                  <div className="text-sm font-semibold">
-                    {competition.deadline ? format(new Date(competition.deadline), "d MMMM yyyy", { locale: ru }) : "Без срока"}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-4">
-                <Users className="h-5 w-5 text-primary" />
-                <div>
-                  <div className="text-xs text-muted-foreground">Возраст</div>
-                  <div className="text-sm font-semibold">{competition.age_from}–{competition.age_to} лет</div>
+                  <div className="text-xs text-muted-foreground">Сроки проведения</div>
+                  <div className="text-sm font-semibold">{dateRange}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-4">
@@ -141,7 +143,7 @@ const CompetitionDetailPage = () => {
               </ul>
             </div>
 
-            {competition.status !== "finished" && (
+            {computedStatus !== "finished" && (
               <div className="flex flex-wrap gap-3">
                 <Button size="lg" asChild>
                   <Link to={`/competitions/${id}/pay`}>Подать заявку</Link>
@@ -149,7 +151,7 @@ const CompetitionDetailPage = () => {
               </div>
             )}
 
-            {competition.status === "finished" && (
+            {computedStatus === "finished" && (
               <div className="rounded-xl bg-muted/50 p-6 text-center">
                 <Award className="mx-auto h-8 w-8 text-primary mb-2" />
                 <p className="font-display font-bold text-foreground">Конкурс завершён</p>

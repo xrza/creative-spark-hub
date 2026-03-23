@@ -24,9 +24,18 @@ const CompetitionsPage = () => {
     },
   });
 
-  const filtered = (competitions || []).filter((c) => {
-    if (category !== "all" && c.category !== category) return false;
-    if (status !== "all" && c.status !== status) return false;
+  const getComputedStatus = (c: any) => {
+    const now = new Date();
+    if (c.start_date && new Date(c.start_date) > now) return "upcoming";
+    if (c.deadline && new Date(c.deadline) < now) return "finished";
+    return "active";
+  };
+
+  const filtered = (competitions || []).filter((c: any) => {
+    if (category === "children" && c.category !== "children") return false;
+    if (category === "teachers" && c.category !== "teachers") return false;
+    const cs = getComputedStatus(c);
+    if (status !== "all" && cs !== status) return false;
     if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -61,7 +70,7 @@ const CompetitionsPage = () => {
           </div>
         ) : (
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((comp) => (
+            {filtered.map((comp: any) => (
               <CompetitionCard key={comp.id} competition={comp} />
             ))}
           </div>
