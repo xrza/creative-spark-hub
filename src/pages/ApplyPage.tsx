@@ -13,7 +13,7 @@ import { z } from "zod";
 
 const applicationSchema = z.object({
   participant_name: z.string().min(2, "Минимум 2 символа"),
-  participant_age: z.number().min(3).max(99),
+  participant_age: z.number().min(0.1, "Минимум 0.1").max(100, "Максимум 100"),
   teacher_name: z.string().optional(),
   organization: z.string().optional(),
   work_title: z.string().min(2, "Минимум 2 символа"),
