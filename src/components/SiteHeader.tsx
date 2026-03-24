@@ -23,6 +23,9 @@ const SiteHeader = () => {
           <Link to="/gallery" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
             Галерея
           </Link>
+          <Link to="/news" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+            Новости
+          </Link>
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
