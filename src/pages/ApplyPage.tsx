@@ -149,7 +149,7 @@ const ApplyPage = () => {
 
             <div>
               <Label>Возраст участника *</Label>
-              <Input type="number" min={3} max={99} value={form.participant_age} onChange={(e) => update("participant_age", e.target.value)} placeholder="7" />
+              <Input type="number" min={0.1} max={100} step={0.1} value={form.participant_age} onChange={(e) => update("participant_age", e.target.value)} placeholder="7" />
               {errors.participant_age && <p className="text-xs text-destructive mt-1">{errors.participant_age}</p>}
             </div>
 
