@@ -134,7 +134,7 @@ const CompetitionDetailPage = () => {
             <div className="mb-8">
               <h2 className="font-display text-lg font-bold text-foreground mb-3">Правила участия</h2>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                {["Работа должна быть выполнена участником самостоятельно", "Принимаются фото (JPG, PNG), видео (MP4) и документы (PDF, DOC)", "Одна работа в одной номинации от одного участника", "Результаты объявляются в течение 7 дней после окончания приёма работ"].map((rule) => (
+                {["Принимаются фото (JPG, PNG) и видео (MP4)", "Одна работа в одной номинации от одного участника", "Результаты объявляются в течение дня после окончания приёма работ"].map((rule) => (
                   <li key={rule} className="flex items-start gap-2">
                     <FileText className="mt-0.5 h-4 w-4 text-primary flex-shrink-0" />
                     {rule}

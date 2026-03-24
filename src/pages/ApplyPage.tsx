@@ -13,7 +13,7 @@ import { z } from "zod";
 
 const applicationSchema = z.object({
   participant_name: z.string().min(2, "Минимум 2 символа"),
-  participant_age: z.number().min(3).max(99),
+  participant_age: z.number().min(0.1, "Минимум 0.1").max(100, "Максимум 100"),
   teacher_name: z.string().optional(),
   organization: z.string().optional(),
   work_title: z.string().min(2, "Минимум 2 символа"),
@@ -57,7 +57,7 @@ const ApplyPage = () => {
 
     const parsed = applicationSchema.safeParse({
       ...form,
-      participant_age: parseInt(form.participant_age) || 0,
+      participant_age: parseFloat(form.participant_age) || 0,
     });
 
     if (!parsed.success) {
@@ -149,7 +149,7 @@ const ApplyPage = () => {
 
             <div>
               <Label>Возраст участника *</Label>
-              <Input type="number" min={3} max={99} value={form.participant_age} onChange={(e) => update("participant_age", e.target.value)} placeholder="7" />
+              <Input type="number" min={0.1} max={100} step={0.1} value={form.participant_age} onChange={(e) => update("participant_age", e.target.value)} placeholder="7" />
               {errors.participant_age && <p className="text-xs text-destructive mt-1">{errors.participant_age}</p>}
             </div>
 
@@ -185,14 +185,14 @@ const ApplyPage = () => {
             </div>
 
             <div>
-              <Label>Файл работы (фото, видео, документ)</Label>
+              <Label>Файл работы (фото, видео)</Label>
               <div className="mt-1">
                 <label className="flex cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-border p-6 text-center hover:border-primary transition-colors">
                   <Upload className="h-5 w-5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
                     {file ? file.name : "Нажмите для загрузки"}
                   </span>
-                  <input type="file" className="hidden" accept="image/*,video/*,.pdf,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                  <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                 </label>
               </div>
             </div>
