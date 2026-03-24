@@ -57,7 +57,7 @@ const ApplyPage = () => {
 
     const parsed = applicationSchema.safeParse({
       ...form,
-      participant_age: parseInt(form.participant_age) || 0,
+      participant_age: parseFloat(form.participant_age) || 0,
     });
 
     if (!parsed.success) {
