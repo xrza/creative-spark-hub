@@ -65,6 +65,7 @@ const SiteHeader = () => {
           <nav className="flex flex-col gap-3">
             <Link to="/competitions" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Конкурсы</Link>
             <Link to="/gallery" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Галерея</Link>
+            <Link to="/news" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Новости</Link>
             <hr className="border-border" />
             {session ? (
               <>

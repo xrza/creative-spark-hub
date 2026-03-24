@@ -40,6 +40,7 @@ const App = () => (
                 <ProtectedRoute><ApplyPage /></ProtectedRoute>
               } />
               <Route path="/gallery" element={<GalleryPage />} />
+              <Route path="/news" element={<NewsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={

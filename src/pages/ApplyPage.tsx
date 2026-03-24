@@ -185,14 +185,14 @@ const ApplyPage = () => {
             </div>
 
             <div>
-              <Label>Файл работы (фото, видео, документ)</Label>
+              <Label>Файл работы (фото, видео)</Label>
               <div className="mt-1">
                 <label className="flex cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-border p-6 text-center hover:border-primary transition-colors">
                   <Upload className="h-5 w-5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
                     {file ? file.name : "Нажмите для загрузки"}
                   </span>
-                  <input type="file" className="hidden" accept="image/*,video/*,.pdf,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                  <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                 </label>
               </div>
             </div>
