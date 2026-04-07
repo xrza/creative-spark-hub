@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload, CalendarIcon } from "lucide-react";
+import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload, CalendarIcon, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -43,6 +43,18 @@ const AdminPage = () => {
     },
   });
 
+  const { data: comments } = useQuery({
+    queryKey: ["admin-comments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("comments")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const totalCompetitions = competitions?.length || 0;
   const totalApplications = applications?.length || 0;
   const uniqueParticipants = new Set(applications?.map((a: any) => a.user_id)).size;
@@ -59,7 +71,7 @@ const AdminPage = () => {
 
   const saveCompetition = useMutation({
     mutationFn: async () => {
-      let image_url = "";
+      let image_url: string | undefined;
 
       if (imageFile) {
         const ext = imageFile.name.split(".").pop();
@@ -110,6 +122,18 @@ const AdminPage = () => {
       toast.success("Конкурс удалён");
       queryClient.invalidateQueries({ queryKey: ["admin-competitions"] });
     },
+  });
+
+  const deleteComment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("comments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Комментарий удалён");
+      queryClient.invalidateQueries({ queryKey: ["admin-comments"] });
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const resetCompForm = () => {
@@ -196,6 +220,7 @@ const AdminPage = () => {
             <TabsTrigger value="competitions">Конкурсы</TabsTrigger>
             <TabsTrigger value="applications">Заявки</TabsTrigger>
             <TabsTrigger value="results">Результаты</TabsTrigger>
+            <TabsTrigger value="comments">Комментарии</TabsTrigger>
           </TabsList>
 
           <TabsContent value="competitions">
@@ -295,7 +320,7 @@ const AdminPage = () => {
                     <div>
                       <div className="font-semibold">{comp.title}</div>
                       <div className="text-xs text-muted-foreground">
-                        {getAudienceLabel(comp.category)} · {statusLabel} · {comp.entry_fee ?? 0} ₽
+                        {getAudienceLabel(comp.category)} · {statusLabel} · {comp.entry_fee ?? 0} ₽ · 👁 {comp.views_count ?? 0}
                         {comp.start_date && comp.deadline && (
                           <> · {format(new Date(comp.start_date), "d.MM", { locale: ru })} – {format(new Date(comp.deadline), "d.MM.yyyy", { locale: ru })}</>
                         )}
@@ -365,6 +390,27 @@ const AdminPage = () => {
               {!applications?.filter((a: any) => a.status === "approved").length && (
                 <p className="text-muted-foreground text-sm">Нет одобренных заявок для оценки</p>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="comments">
+            <h2 className="font-display text-lg font-bold mb-4">Комментарии</h2>
+            <div className="space-y-3">
+              {comments?.map((c: any) => (
+                <div key={c.id} className="flex items-start justify-between rounded-xl border bg-card p-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      {new Date(c.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                      {" · "}{c.author_name || "Аноним"}
+                    </div>
+                    <p className="text-sm text-foreground">{c.content}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteComment.mutate(c.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              {!comments?.length && <p className="text-muted-foreground text-sm">Комментариев пока нет</p>}
             </div>
           </TabsContent>
         </Tabs>
