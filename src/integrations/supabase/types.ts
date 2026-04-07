@@ -143,6 +143,7 @@ export type Database = {
           start_date: string | null
           status: string
           title: string
+          views_count: number
         }
         Insert: {
           age_from?: number | null
@@ -160,6 +161,7 @@ export type Database = {
           start_date?: string | null
           status?: string
           title: string
+          views_count?: number
         }
         Update: {
           age_from?: number | null
@@ -177,6 +179,7 @@ export type Database = {
           start_date?: string | null
           status?: string
           title?: string
+          views_count?: number
         }
         Relationships: []
       }
@@ -208,6 +211,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      news: {
+        Row: {
+          body: string
+          created_at: string | null
+          id: string
+          photo_url: string | null
+          published_at: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          id?: string
+          photo_url?: string | null
+          published_at?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          id?: string
+          photo_url?: string | null
+          published_at?: string | null
+          title?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -310,6 +340,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_competition_views: {
+        Args: { _competition_id: string }
+        Returns: undefined
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
