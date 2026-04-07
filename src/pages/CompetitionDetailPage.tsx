@@ -1,16 +1,25 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Award, FileText, ArrowLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Calendar, Award, FileText, ArrowLeft, Plus, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { toast } from "sonner";
 
 const audienceLabels: Record<string, string> = { children: "Для детей", teachers: "Для педагогов", all: "Для всех" };
 
 const CompetitionDetailPage = () => {
   const { id } = useParams();
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: competition, isLoading } = useQuery({
     queryKey: ["competition", id],
@@ -20,6 +29,45 @@ const CompetitionDetailPage = () => {
       return data;
     },
     enabled: !!id,
+  });
+
+  // Increment views on mount
+  useEffect(() => {
+    if (id) {
+      supabase.rpc("increment_competition_views", { _competition_id: id });
+    }
+  }, [id]);
+
+  // News dialog state
+  const [newsOpen, setNewsOpen] = useState(false);
+  const [newsTitle, setNewsTitle] = useState("");
+  const [newsBody, setNewsBody] = useState("");
+  const [newsPhoto, setNewsPhoto] = useState<File | null>(null);
+
+  const publishNews = useMutation({
+    mutationFn: async () => {
+      let photo_url: string | null = null;
+      if (newsPhoto) {
+        const ext = newsPhoto.name.split(".").pop();
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("news").upload(path, newsPhoto);
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from("news").getPublicUrl(path);
+        photo_url = urlData.publicUrl;
+      }
+      const { error } = await supabase.from("news").insert({ title: newsTitle, body: newsBody, photo_url });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Новость опубликована");
+      setNewsOpen(false);
+      setNewsTitle("");
+      setNewsBody("");
+      setNewsPhoto(null);
+      queryClient.invalidateQueries({ queryKey: ["news"] });
+      queryClient.invalidateQueries({ queryKey: ["news-latest"] });
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   if (isLoading) {
@@ -43,7 +91,7 @@ const CompetitionDetailPage = () => {
 
   const nominations = competition.nomination || [];
   const now = new Date();
-  const startDate = (competition as any).start_date ? new Date((competition as any).start_date) : null;
+  const startDate = competition.start_date ? new Date(competition.start_date) : null;
   const endDate = competition.deadline ? new Date(competition.deadline) : null;
   const computedStatus = startDate && startDate > now ? "upcoming" : endDate && endDate < now ? "finished" : "active";
 
@@ -63,9 +111,44 @@ const CompetitionDetailPage = () => {
   return (
     <div className="py-8">
       <div className="container max-w-4xl">
-        <Link to="/competitions" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="h-4 w-4" /> Все конкурсы
-        </Link>
+        <div className="flex items-center justify-between mb-6">
+          <Link to="/competitions" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> Все конкурсы
+          </Link>
+          {isAdmin && (
+            <Dialog open={newsOpen} onOpenChange={setNewsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" /> Добавить новость</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Новая новость</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 mt-4">
+                  <div>
+                    <Label>Заголовок *</Label>
+                    <Input value={newsTitle} onChange={(e) => setNewsTitle(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Текст новости *</Label>
+                    <Textarea value={newsBody} onChange={(e) => setNewsBody(e.target.value)} rows={5} />
+                  </div>
+                  <div>
+                    <Label>Фото (необязательно)</Label>
+                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-muted-foreground/30 p-4 hover:bg-muted/50 transition-colors mt-1">
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">{newsPhoto ? newsPhoto.name : "Выберите файл..."}</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => setNewsPhoto(e.target.files?.[0] || null)} />
+                    </label>
+                  </div>
+                  <Button className="w-full" onClick={() => publishNews.mutate()} disabled={publishNews.isPending || !newsTitle.trim() || !newsBody.trim()}>
+                    {publishNews.isPending ? "Публикация..." : "Опубликовать"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
 
         <div className="rounded-3xl overflow-hidden border shadow-playful">
           <div className="relative aspect-[21/9] overflow-hidden bg-muted">

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Star, Award, Palette, Users, ArrowRight } from "lucide-react";
+import { Star, Award, Palette, Users, ArrowRight, Calendar } from "lucide-react";
 import CompetitionCard from "@/components/CompetitionCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +22,21 @@ const Index = () => {
     },
   });
 
+  const { data: latestNews } = useQuery({
+    queryKey: ["news-latest"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("news")
+        .select("*")
+        .order("published_at", { ascending: false })
+        .limit(3);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const featured = competitions || [];
+  const news = latestNews || [];
 
   return (
     <div>
@@ -72,7 +86,7 @@ const Index = () => {
             </div>
 
             <div className="relative hidden md:block">
-              <img src={heroBanner} alt="Дети рисуют и занимаются творчеством" className="rounded-3xl shadow-playful" />
+              <img src={heroBanner} alt="Дети рисуют и занимаются творчеством" className="rounded-3xl shadow-playful" width={1280} height={720} />
               <img src={trophyIcon} alt="Кубок" className="absolute -bottom-6 -left-6 h-24 w-24 animate-float" />
             </div>
           </div>
@@ -93,7 +107,7 @@ const Index = () => {
             {[
               { step: "01", title: "Выберите конкурс", desc: "Найдите подходящий конкурс для вашего ребёнка или педагогический конкурс", color: "bg-primary/10 text-primary" },
               { step: "02", title: "Оплатите участие", desc: "Оплатите организационный взнос или используйте промокод", color: "bg-secondary/10 text-secondary" },
-              { step: "03", title: "Отправьте работу", desc: "Загрузите фото, видео или документ с творческой работой", color: "bg-accent/20 text-accent-foreground" },
+              { step: "03", title: "Отправьте работу", desc: "Загрузите фото или видео с творческой работой", color: "bg-accent/20 text-accent-foreground" },
               { step: "04", title: "Получите диплом", desc: "Дождитесь результатов и скачайте диплом победителя", color: "bg-success/10 text-success" },
             ].map(({ step, title, desc, color }) => (
               <div key={step} className="group rounded-2xl border bg-card p-6 transition-all duration-300 hover:shadow-playful hover:-translate-y-1">
@@ -133,21 +147,36 @@ const Index = () => {
       {/* News Section */}
       <section className="py-16 md:py-20">
         <div className="container">
-          <h2 className="text-center font-display text-3xl font-black text-foreground md:text-4xl">Новости</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">Последние события и обновления</p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
-            {[
-              { title: "Открыт приём работ на весенние конкурсы!", date: "20 марта 2026", text: "Новые конкурсы для дошкольников и младших школьников уже доступны. Спешите подать заявку!" },
-              { title: "Результаты зимнего сезона опубликованы", date: "15 марта 2026", text: "Поздравляем всех победителей! Дипломы доступны в личном кабинете участников." },
-              { title: "Обновление галереи работ", date: "10 марта 2026", text: "Теперь вы можете ставить лайки и оставлять комментарии к работам в галерее." },
-            ].map(({ title, date, text }) => (
-              <div key={title} className="rounded-2xl border bg-card p-6 transition-all hover:shadow-playful">
-                <div className="text-xs text-muted-foreground mb-2">{date}</div>
-                <h3 className="font-display text-base font-bold text-foreground mb-2">{title}</h3>
-                <p className="text-sm text-muted-foreground">{text}</p>
-              </div>
-            ))}
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <h2 className="font-display text-3xl font-black text-foreground md:text-4xl">Новости</h2>
+              <p className="mt-2 text-muted-foreground">Последние события и обновления</p>
+            </div>
+            <Button variant="outline" asChild className="hidden sm:inline-flex">
+              <Link to="/news">Все новости →</Link>
+            </Button>
           </div>
+          {news.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-3">
+              {news.map((item) => (
+                <div key={item.id} className="rounded-2xl border bg-card overflow-hidden transition-all hover:shadow-playful">
+                  {item.photo_url && (
+                    <img src={item.photo_url} alt={item.title} className="w-full h-40 object-cover" loading="lazy" />
+                  )}
+                  <div className="p-6">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {new Date(item.published_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                    </div>
+                    <h3 className="font-display text-base font-bold text-foreground mb-2">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-3">{item.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-10">Новостей пока нет</p>
+          )}
         </div>
       </section>
 

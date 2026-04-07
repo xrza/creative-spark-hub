@@ -1,49 +1,58 @@
 import { Calendar } from "lucide-react";
-
-const newsItems = [
-  {
-    id: 1,
-    title: "Стартовал весенний конкурс «Краски весны»",
-    date: "2026-03-20",
-    text: "Приглашаем дошкольников и школьников принять участие в творческом конкурсе, посвящённом весне. Принимаются рисунки, поделки и фотоработы.",
-  },
-  {
-    id: 2,
-    title: "Подведены итоги зимнего конкурса «Новогоднее чудо»",
-    date: "2026-02-15",
-    text: "Благодарим всех участников! Дипломы победителей и призёров уже доступны в личном кабинете. Поздравляем!",
-  },
-  {
-    id: 3,
-    title: "Обновлена галерея лучших работ",
-    date: "2026-01-28",
-    text: "В галерее появились новые работы победителей. Заходите, голосуйте и оставляйте комментарии!",
-  },
-  {
-    id: 4,
-    title: "Новый раздел для педагогов",
-    date: "2026-01-10",
-    text: "Теперь педагоги могут участвовать в специальных номинациях: методические разработки, конспекты и сценарии мероприятий.",
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const NewsPage = () => {
+  const { data: news, isLoading } = useQuery({
+    queryKey: ["news"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("news")
+        .select("*")
+        .order("published_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   return (
     <div className="py-10">
       <div className="container max-w-3xl">
         <h1 className="font-display text-3xl font-black text-foreground mb-8">Новости</h1>
-        <div className="space-y-6">
-          {newsItems.map((item) => (
-            <article key={item.id} className="rounded-2xl border bg-card p-6 shadow-sm">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                <Calendar className="h-3.5 w-3.5" />
-                {new Date(item.date).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
-              </div>
-              <h2 className="font-display text-lg font-bold text-foreground mb-2">{item.title}</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">{item.text}</p>
-            </article>
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : !news?.length ? (
+          <p className="text-center text-muted-foreground py-20">Новостей пока нет</p>
+        ) : (
+          <div className="space-y-6">
+            {news.map((item) => (
+              <article key={item.id} className="rounded-2xl border bg-card overflow-hidden shadow-sm">
+                {item.photo_url && (
+                  <img
+                    src={item.photo_url}
+                    alt={item.title}
+                    className="w-full max-h-[300px] object-cover"
+                    loading="lazy"
+                  />
+                )}
+                <div className="p-6">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {new Date(item.published_at).toLocaleDateString("ru-RU", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </div>
+                  <h2 className="font-display text-lg font-bold text-foreground mb-2">{item.title}</h2>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{item.body}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
