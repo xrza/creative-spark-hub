@@ -17,6 +17,7 @@ import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
 import NewsPage from "./pages/NewsPage";
+import AgreementPage from "./pages/AgreementPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
               } />
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/news" element={<NewsPage />} />
+              <Route path="/agreement" element={<AgreementPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={
