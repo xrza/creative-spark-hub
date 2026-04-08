@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload, CalendarIcon, MessageSquare } from "lucide-react";
+import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload, CalendarIcon, MessageSquare, Newspaper } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -196,6 +196,62 @@ const AdminPage = () => {
   const [filterCompId, setFilterCompId] = useState<string>("all");
   const filteredApps = filterCompId === "all" ? applications : applications?.filter((a: any) => a.competition_id === filterCompId);
 
+  // News tab state
+  const { data: adminNews } = useQuery({
+    queryKey: ["admin-news"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("news").select("*").order("published_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const [newsForm, setNewsForm] = useState({ title: "", body: "" });
+  const [newsPhotoFile, setNewsPhotoFile] = useState<File | null>(null);
+  const [newsDialogOpen, setNewsDialogOpen] = useState(false);
+  const [newsSubmitting, setNewsSubmitting] = useState(false);
+
+  const publishAdminNews = async () => {
+    if (!newsForm.title || !newsForm.body) return;
+    setNewsSubmitting(true);
+    try {
+      let photo_url: string | null = null;
+      if (newsPhotoFile) {
+        const ext = newsPhotoFile.name.split(".").pop();
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("news").upload(path, newsPhotoFile);
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from("news").getPublicUrl(path);
+        photo_url = urlData.publicUrl;
+      }
+      const { error } = await supabase.from("news").insert({ title: newsForm.title, body: newsForm.body, photo_url });
+      if (error) throw error;
+      toast.success("Новость опубликована!");
+      queryClient.invalidateQueries({ queryKey: ["admin-news"] });
+      queryClient.invalidateQueries({ queryKey: ["news"] });
+      setNewsDialogOpen(false);
+      setNewsForm({ title: "", body: "" });
+      setNewsPhotoFile(null);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setNewsSubmitting(false);
+    }
+  };
+
+  const deleteAdminNews = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("news").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Новость удалена");
+      queryClient.invalidateQueries({ queryKey: ["admin-news"] });
+      queryClient.invalidateQueries({ queryKey: ["news"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <div className="py-8">
       <div className="container">
@@ -221,6 +277,7 @@ const AdminPage = () => {
             <TabsTrigger value="applications">Заявки</TabsTrigger>
             <TabsTrigger value="results">Результаты</TabsTrigger>
             <TabsTrigger value="comments">Комментарии</TabsTrigger>
+            <TabsTrigger value="news">Новости</TabsTrigger>
           </TabsList>
 
           <TabsContent value="competitions">
@@ -411,6 +468,54 @@ const AdminPage = () => {
                 </div>
               ))}
               {!comments?.length && <p className="text-muted-foreground text-sm">Комментариев пока нет</p>}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="news">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <Newspaper className="h-5 w-5 text-primary" />
+                <h2 className="font-display text-lg font-bold">Управление новостями</h2>
+              </div>
+              <Dialog open={newsDialogOpen} onOpenChange={setNewsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button><Plus className="h-4 w-4 mr-1" /> Добавить новость</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Новая новость</DialogTitle></DialogHeader>
+                  <div className="space-y-3 mt-4">
+                    <div><Label>Заголовок *</Label><Input value={newsForm.title} onChange={(e) => setNewsForm({ ...newsForm, title: e.target.value })} /></div>
+                    <div><Label>Текст новости *</Label><Textarea rows={5} value={newsForm.body} onChange={(e) => setNewsForm({ ...newsForm, body: e.target.value })} /></div>
+                    <div>
+                      <Label>Фото</Label>
+                      <input type="file" accept="image/*" className="mt-1 block w-full text-sm" onChange={(e) => setNewsPhotoFile(e.target.files?.[0] || null)} />
+                    </div>
+                    <Button className="w-full" onClick={publishAdminNews} disabled={newsSubmitting || !newsForm.title || !newsForm.body}>
+                      {newsSubmitting ? "Публикация..." : "Опубликовать"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="space-y-3">
+              {adminNews?.map((item: any) => (
+                <div key={item.id} className="flex items-center gap-4 rounded-xl border bg-card p-4">
+                  {item.photo_url && (
+                    <img src={item.photo_url} alt="" className="h-16 w-24 object-cover rounded-lg flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm">{item.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(item.published_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.body}</p>
+                  </div>
+                  <Button size="sm" variant="destructive" onClick={() => deleteAdminNews.mutate(item.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              {!adminNews?.length && <p className="text-muted-foreground text-sm">Новостей пока нет</p>}
             </div>
           </TabsContent>
         </Tabs>
