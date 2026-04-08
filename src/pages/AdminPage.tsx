@@ -272,7 +272,7 @@ const AdminPage = () => {
           ))}
         </div>
 
-        <Tabs defaultValue="competitions">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="competitions">Конкурсы</TabsTrigger>
             <TabsTrigger value="applications">Заявки</TabsTrigger>
