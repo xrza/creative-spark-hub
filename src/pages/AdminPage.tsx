@@ -23,6 +23,7 @@ const AUDIENCES = [
 ];
 
 const AdminPage = () => {
+  const [activeTab, setActiveTab] = useState("competitions");
   const queryClient = useQueryClient();
 
   const { data: competitions } = useQuery({
