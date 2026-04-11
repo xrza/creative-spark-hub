@@ -26,6 +26,9 @@ const SiteHeader = () => {
           <Link to="/news" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
             Новости
           </Link>
+          <Link to="/top" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+            Топ участников
+          </Link>
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
@@ -66,6 +69,7 @@ const SiteHeader = () => {
             <Link to="/competitions" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Конкурсы</Link>
             <Link to="/gallery" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Галерея</Link>
             <Link to="/news" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Новости</Link>
+            <Link to="/top" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Топ участников</Link>
             <hr className="border-border" />
             {session ? (
               <>
