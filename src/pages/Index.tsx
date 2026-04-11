@@ -157,15 +157,14 @@ const Index = () => {
             </Button>
           </div>
           {news.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2">
               {news.map((item) => (
                 <div key={item.id} className="rounded-2xl border bg-card overflow-hidden transition-all hover:shadow-playful">
                   {item.photo_url && (
-                    <img src={item.photo_url} alt={item.title} className="w-full h-40 object-cover" loading="lazy" />
+                    <img src={item.photo_url} alt={item.title} className="w-full aspect-video object-cover" loading="lazy" />
                   )}
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                      <Calendar className="h-3.5 w-3.5" />
+                  <div className="p-5">
+                    <div className="text-xs text-muted-foreground mb-2">
                       {new Date(item.published_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
                     </div>
                     <h3 className="font-display text-base font-bold text-foreground mb-2">{item.title}</h3>
@@ -192,9 +191,9 @@ const Index = () => {
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button size="lg" variant="secondary" asChild>
-                <Link to="/register">Начать участие</Link>
+                <Link to="/register">Принять участие</Link>
               </Button>
-              <Button size="lg" variant="outline" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10" asChild>
+              <Button size="lg" variant="secondary" asChild>
                 <Link to="/competitions">Посмотреть конкурсы</Link>
               </Button>
             </div>
