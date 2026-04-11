@@ -1,5 +1,6 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import CookieBanner from "@/components/CookieBanner";
 import { Outlet } from "react-router-dom";
 
 const MainLayout = () => {
@@ -10,6 +11,7 @@ const MainLayout = () => {
         <Outlet />
       </main>
       <SiteFooter />
+      <CookieBanner />
     </div>
   );
 };

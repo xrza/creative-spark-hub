@@ -35,19 +35,23 @@ const SiteFooter = () => {
           <div>
             <h4 className="font-display text-sm font-bold mb-3">Контакты</h4>
             <div className="flex flex-col gap-2">
-              <a href="mailto:info@studio-tvorchestva.ru" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <a href="mailto:kidkonkurs@yandex.ru" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                 <Mail className="h-4 w-4" />
-                info@studio-tvorchestva.ru
+                kidkonkurs@yandex.ru
               </a>
-              <a href="tel:+79001234567" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <a href="tel:+79173072191" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                 <Phone className="h-4 w-4" />
-                +7 (900) 123-45-67
+                8 (917) 307-21-91
               </a>
             </div>
           </div>
         </div>
 
         <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
+          <div className="mb-2 flex flex-wrap justify-center gap-4">
+            <Link to="/agreement" className="hover:text-foreground">Пользовательское соглашение</Link>
+            <Link to="/privacy" className="hover:text-foreground">Политика конфиденциальности</Link>
+          </div>
           © {new Date().getFullYear()} Студия Творчества. Все права защищены.
         </div>
       </div>

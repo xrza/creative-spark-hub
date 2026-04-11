@@ -25,6 +25,7 @@ const ApplyPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const [dataConsent, setDataConsent] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     participant_name: "",
@@ -54,6 +55,10 @@ const ApplyPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !competition) return;
+    if (!dataConsent) {
+      toast.error("Необходимо дать согласие на обработку персональных данных");
+      return;
+    }
 
     const parsed = applicationSchema.safeParse({
       ...form,
@@ -197,7 +202,22 @@ const ApplyPage = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={dataConsent}
+                onChange={(e) => setDataConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-primary"
+              />
+              <span className="text-sm text-muted-foreground">
+                Я даю согласие на обработку персональных данных в соответствии с{" "}
+                <Link to="/privacy" className="text-primary underline hover:text-primary/80">
+                  Политикой конфиденциальности
+                </Link>
+              </span>
+            </div>
+
+            <Button type="submit" className="w-full" size="lg" disabled={submitting || !dataConsent}>
               {submitting ? "Отправка..." : "Отправить заявку"}
             </Button>
           </form>
