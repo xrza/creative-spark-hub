@@ -18,6 +18,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AdminPage from "./pages/AdminPage";
 import NewsPage from "./pages/NewsPage";
 import AgreementPage from "./pages/AgreementPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/news" element={<NewsPage />} />
               <Route path="/agreement" element={<AgreementPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={
