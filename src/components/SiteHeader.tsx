@@ -12,8 +12,7 @@ const SiteHeader = () => {
     <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <Trophy className="h-7 w-7 text-primary" />
-          <span className="font-display text-xl font-bold text-foreground">Студия Творчества</span>
+          <img src="/logo.png" alt="Студия Творчества" className="h-20 w-60" />
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

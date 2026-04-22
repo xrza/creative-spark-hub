@@ -11,6 +11,102 @@ import { ArrowLeft, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+// ─── [1] КОНСТАНТЫ ────────────────────────────────────────────────────────────
+// Максимальный размер файла до обработки
+const MAX_IMG_MB = 10;
+const MAX_VID_MB = 100;
+
+// Форматы изображений, которые можно конвертировать в JPG
+const CONVERTIBLE_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/bmp",
+  "image/tiff",
+  "image/avif",
+];
+
+// ─── [2] ФУНКЦИЯ КОНВЕРТАЦИИ В JPG ───────────────────────────────────────────
+// Рисует изображение на canvas и экспортирует в JPEG.
+// Если ширина > maxWidth — уменьшает пропорционально.
+async function toJpeg(file: File, maxWidth = 1920, quality = 0.85): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error("Не удалось конвертировать файл"));
+            const name = file.name.replace(/\.[^.]+$/, ".jpg");
+            resolve(new File([blob], name, { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          quality
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Не удалось прочитать изображение"));
+    };
+    img.src = url;
+  });
+}
+
+// ─── [3] ФУНКЦИЯ ВАЛИДАЦИИ И ОБРАБОТКИ ФАЙЛА ─────────────────────────────────
+// Проверяет формат и размер, конвертирует изображения в JPG,
+// видео принимает только MP4. Всё остальное — ошибка.
+async function processFile(
+    raw: File,
+    onSuccess: (f: File) => void,
+    onError: (msg: string) => void,
+    onInfo: (msg: string) => void
+) {
+  const { type, size, name } = raw;
+
+  // Изображение — конвертируем в JPG
+  if (CONVERTIBLE_IMAGE_TYPES.includes(type)) {
+    if (size > MAX_IMG_MB * 1024 * 1024) {
+      return onError(`Изображение слишком большое (макс. ${MAX_IMG_MB} МБ)`);
+    }
+    try {
+      if (type !== "image/jpeg") {
+        onInfo(`Конвертируем ${name} → JPG...`);
+      }
+      const jpg = await toJpeg(raw);
+      const mb = (jpg.size / 1024 / 1024).toFixed(2);
+      onSuccess(jpg);
+      onInfo(`✓ Файл готов: ${jpg.name} · ${mb} МБ`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Неизвестная ошибка";
+      onError("Ошибка конвертации: " + msg);
+    }
+    return;
+  }
+
+  // Видео MP4 — принимаем как есть
+  if (type === "video/mp4") {
+    if (size > MAX_VID_MB * 1024 * 1024) {
+      return onError(`Видео слишком большое (макс. ${MAX_VID_MB} МБ)`);
+    }
+    const mb = (size / 1024 / 1024).toFixed(2);
+    onSuccess(raw);
+    onInfo(`✓ Видео: ${name} · ${mb} МБ`);
+    return;
+  }
+
+  // Всё остальное — ошибка
+  const ext = name.split(".").pop()?.toUpperCase() || type;
+  onError(`Формат «${ext}» не поддерживается. Принимаются фото (JPG, PNG) и видео (MP4)`);
+}
+
+// ─── СХЕМА ВАЛИДАЦИИ (без изменений) ─────────────────────────────────────────
 const applicationSchema = z.object({
   participant_name: z.string().min(2, "Минимум 2 символа"),
   participant_age: z.number().min(0.1, "Минимум 0.1").max(100, "Максимум 100"),
@@ -27,6 +123,8 @@ const ApplyPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [dataConsent, setDataConsent] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  // [4] Состояние загрузки файла — блокирует кнопку пока идёт конвертация
+  const [fileProcessing, setFileProcessing] = useState(false);
   const [form, setForm] = useState({
     participant_name: "",
     participant_age: "",
@@ -116,114 +214,148 @@ const ApplyPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
     );
   }
 
   if (!competition) {
     return (
-      <div className="container py-20 text-center">
-        <h1 className="font-display text-2xl font-bold text-foreground">Конкурс не найден</h1>
-      </div>
+        <div className="container py-20 text-center">
+          <h1 className="font-display text-2xl font-bold text-foreground">Конкурс не найден</h1>
+        </div>
     );
   }
 
   const nominations = competition.nomination ?? [];
 
   return (
-    <div className="py-8">
-      <div className="container max-w-lg">
-        <Link to={`/competitions/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="h-4 w-4" /> Назад к конкурсу
-        </Link>
+      <div className="py-8">
+        <div className="container max-w-lg">
+          <Link to={`/competitions/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+            <ArrowLeft className="h-4 w-4" /> Назад к конкурсу
+          </Link>
 
-        <div className="rounded-2xl border bg-card p-8 shadow-playful">
-          <div className="mb-6 text-center">
-            <h1 className="font-display text-2xl font-black text-foreground">Подача заявки</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{competition.title}</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>Имя участника *</Label>
-              <Input value={form.participant_name} onChange={(e) => update("participant_name", e.target.value)} placeholder="Иванов Артём" />
-              {errors.participant_name && <p className="text-xs text-destructive mt-1">{errors.participant_name}</p>}
+          <div className="rounded-2xl border bg-card p-8 shadow-playful">
+            <div className="mb-6 text-center">
+              <h1 className="font-display text-2xl font-black text-foreground">Подача заявки</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{competition.title}</p>
             </div>
 
-            <div>
-              <Label>Возраст участника *</Label>
-              <Input type="number" min={0.1} max={100} step={0.1} value={form.participant_age} onChange={(e) => update("participant_age", e.target.value)} placeholder="7" />
-              {errors.participant_age && <p className="text-xs text-destructive mt-1">{errors.participant_age}</p>}
-            </div>
-
-            <div>
-              <Label>ФИО педагога / руководителя</Label>
-              <Input value={form.teacher_name} onChange={(e) => update("teacher_name", e.target.value)} placeholder="Иванова М.П." />
-            </div>
-
-            <div>
-              <Label>Организация</Label>
-              <Input value={form.organization} onChange={(e) => update("organization", e.target.value)} placeholder="МБДОУ Детский сад №1" />
-            </div>
-
-            <div>
-              <Label>Название работы *</Label>
-              <Input value={form.work_title} onChange={(e) => update("work_title", e.target.value)} placeholder="Весенний букет" />
-              {errors.work_title && <p className="text-xs text-destructive mt-1">{errors.work_title}</p>}
-            </div>
-
-            <div>
-              <Label>Номинация *</Label>
-              <Select value={form.nomination} onValueChange={(v) => update("nomination", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите номинацию" />
-                </SelectTrigger>
-                <SelectContent>
-                  {nominations.map((nom) => (
-                    <SelectItem key={nom} value={nom}>{nom}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.nomination && <p className="text-xs text-destructive mt-1">{errors.nomination}</p>}
-            </div>
-
-            <div>
-              <Label>Файл работы (фото, видео)</Label>
-              <div className="mt-1">
-                <label className="flex cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-border p-6 text-center hover:border-primary transition-colors">
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {file ? file.name : "Нажмите для загрузки"}
-                  </span>
-                  <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                </label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label>Имя участника *</Label>
+                <Input value={form.participant_name} onChange={(e) => update("participant_name", e.target.value)} placeholder="Иванов Артём" />
+                {errors.participant_name && <p className="text-xs text-destructive mt-1">{errors.participant_name}</p>}
               </div>
-            </div>
 
-            <div className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                checked={dataConsent}
-                onChange={(e) => setDataConsent(e.target.checked)}
-                className="mt-0.5 h-4 w-4 cursor-pointer accent-primary"
-              />
-              <span className="text-sm text-muted-foreground">
+              <div>
+                <Label>Возраст участника *</Label>
+                <Input type="number" min={0.1} max={100} step={0.1} value={form.participant_age} onChange={(e) => update("participant_age", e.target.value)} placeholder="7" />
+                {errors.participant_age && <p className="text-xs text-destructive mt-1">{errors.participant_age}</p>}
+              </div>
+
+              <div>
+                <Label>ФИО педагога / руководителя</Label>
+                <Input value={form.teacher_name} onChange={(e) => update("teacher_name", e.target.value)} placeholder="Иванова М.П." />
+              </div>
+
+              <div>
+                <Label>Организация</Label>
+                <Input value={form.organization} onChange={(e) => update("organization", e.target.value)} placeholder="МБДОУ Детский сад №1" />
+              </div>
+
+              <div>
+                <Label>Название работы *</Label>
+                <Input value={form.work_title} onChange={(e) => update("work_title", e.target.value)} placeholder="Весенний букет" />
+                {errors.work_title && <p className="text-xs text-destructive mt-1">{errors.work_title}</p>}
+              </div>
+
+              <div>
+                <Label>Номинация *</Label>
+                <Select value={form.nomination} onValueChange={(v) => update("nomination", v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите номинацию" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nominations.map((nom) => (
+                        <SelectItem key={nom} value={nom}>{nom}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.nomination && <p className="text-xs text-destructive mt-1">{errors.nomination}</p>}
+              </div>
+
+              {/* [5] ОБНОВЛЁННЫЙ БЛОК ЗАГРУЗКИ ФАЙЛА */}
+              <div>
+                <Label>Файл работы (фото JPG/PNG или видео MP4)</Label>
+                <div className="mt-1">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-border p-6 hover:border-primary transition-colors">
+                    <Upload className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    {/* [6] Отображение имени, типа и размера файла после обработки */}
+                    {fileProcessing ? (
+                        <span className="text-sm text-muted-foreground animate-pulse">Обработка файла...</span>
+                    ) : file ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-foreground">{file.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                        {file.type === "video/mp4" ? "🎬 Видео" : "🖼 Изображение"} · {(file.size / 1024 / 1024).toFixed(2)} МБ
+                      </span>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm text-muted-foreground">Нажмите для загрузки</span>
+                          <span className="text-xs text-muted-foreground">JPG, PNG → конвертируются · MP4 · до {MAX_VID_MB} МБ</span>
+                        </div>
+                    )}
+                    {/* [7] accept — браузер показывает только нужные форматы в диалоге */}
+                    <input
+                        type="file"
+                        className="hidden"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff,image/avif,video/mp4"
+                        onChange={async (e) => {
+                          const raw = e.target.files?.[0];
+                          if (!raw) return;
+                          e.target.value = ""; // сброс, чтобы можно было выбрать тот же файл повторно
+                          setFileProcessing(true);
+                          setFile(null);
+                          await processFile(
+                              raw,
+                              (f) => setFile(f),
+                              (msg) => toast.error(msg),
+                              (msg) => toast.info(msg)
+                          );
+                          setFileProcessing(false);
+                        }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <input
+                    type="checkbox"
+                    checked={dataConsent}
+                    onChange={(e) => setDataConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 cursor-pointer accent-primary"
+                />
+                <span className="text-sm text-muted-foreground">
                 Я даю согласие на обработку персональных данных в соответствии с{" "}
-                <Link to="/privacy" className="text-primary underline hover:text-primary/80">
+                  <Link to="/privacy" className="text-primary underline hover:text-primary/80">
                   Политикой конфиденциальности
                 </Link>
               </span>
-            </div>
+              </div>
 
-            <Button type="submit" className="w-full" size="lg" disabled={submitting || !dataConsent}>
-              {submitting ? "Отправка..." : "Отправить заявку"}
-            </Button>
-          </form>
+              {/* [8] Кнопка блокируется пока идёт конвертация файла */}
+              <Button type="submit" className="w-full" size="lg" disabled={submitting || !dataConsent || fileProcessing}>
+                {submitting ? "Отправка..." : "Отправить заявку"}
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
   );
 };
 

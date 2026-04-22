@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload, CalendarIcon, Newspaper } from "lucide-react";
+import { Plus, Trophy, FileText, BarChart3, Trash2, Edit, Upload, CalendarIcon, Newspaper, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -45,12 +45,35 @@ const AdminPage = () => {
     },
   });
 
+  // ← НОВОЕ: загружаем лайки для раздела результатов
+  const { data: likes } = useQuery({
+    queryKey: ["gallery-likes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("likes").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: comments } = useQuery({
     queryKey: ["admin-comments"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-          .from("news_comments")     // <-- правильная таблица
+          .from("news_comments")
           .select("id, content, created_at, user_id, news_id, news(title)")
+          .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Комментарии из галереи (таблица comments)
+  const { data: galleryComments } = useQuery({
+    queryKey: ["admin-gallery-comments"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+          .from("comments")
+          .select("id, content, created_at, author_name, application_id, applications(work_title)")
           .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -70,6 +93,9 @@ const AdminPage = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [compDialogOpen, setCompDialogOpen] = useState(false);
   const [editingCompId, setEditingCompId] = useState<string | null>(null);
+
+  // ← НОВОЕ: локальный стейт для мгновенного отображения статуса
+  const [pendingStatuses, setPendingStatuses] = useState<Record<string, string>>({});
 
   const saveCompetition = useMutation({
     mutationFn: async () => {
@@ -124,15 +150,25 @@ const AdminPage = () => {
 
   const deleteComment = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any)
-          .from("news_comments")   // <-- было "comments"
-          .delete()
-          .eq("id", id);
+      const { error } = await (supabase as any).from("news_comments").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Комментарий удалён");
       queryClient.invalidateQueries({ queryKey: ["admin-comments"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteGalleryComment = useMutation({
+    mutationFn: async (id: string | number) => {
+      const { error } = await (supabase as any).from("comments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Комментарий удалён");
+      queryClient.invalidateQueries({ queryKey: ["admin-gallery-comments"] });
+      queryClient.invalidateQueries({ queryKey: ["gallery-comments"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -176,9 +212,22 @@ const AdminPage = () => {
       const { error } = await supabase.from("applications").update({ status }).eq("id", id);
       if (error) throw error;
     },
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-applications"] });
+      const previous = queryClient.getQueryData(["admin-applications"]);
+      queryClient.setQueryData(["admin-applications"], (old: any[]) =>
+          old?.map((app: any) => app.id === id ? { ...app, status } : app)
+      );
+      return { previous };
+    },
     onSuccess: () => {
       toast.success("Статус обновлён");
-      queryClient.invalidateQueries({ queryKey: ["admin-applications"] });
+      queryClient.refetchQueries({ queryKey: ["admin-applications"] });
+      queryClient.refetchQueries({ queryKey: ["gallery-works"] });
+    },
+    onError: (e: any, _vars, context: any) => {
+      queryClient.setQueryData(["admin-applications"], context?.previous);
+      toast.error("Ошибка: " + e.message);
     },
   });
 
@@ -194,10 +243,25 @@ const AdminPage = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const changeVotes = useMutation({
+    mutationFn: async ({ applicationId, currentVotes, nextVotes }: { applicationId: string; currentVotes: number; nextVotes: number }) => {
+      const { data, error } = await supabase.functions.invoke("admin-change-votes", {
+        body: { applicationId, currentVotes, nextVotes },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Голоса обновлены");
+      queryClient.invalidateQueries({ queryKey: ["gallery-likes"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const [filterCompId, setFilterCompId] = useState<string>("all");
   const filteredApps = filterCompId === "all" ? applications : applications?.filter((a: any) => a.competition_id === filterCompId);
 
-  // News tab state
   const { data: adminNews } = useQuery({
     queryKey: ["admin-news"],
     queryFn: async () => {
@@ -211,8 +275,6 @@ const AdminPage = () => {
   const [newsPhotoFile, setNewsPhotoFile] = useState<File | null>(null);
   const [newsDialogOpen, setNewsDialogOpen] = useState(false);
   const [newsSubmitting, setNewsSubmitting] = useState(false);
-
-  // Редактирование новости
   const [editingNews, setEditingNews] = useState<any | null>(null);
   const [editNewsDialogOpen, setEditNewsDialogOpen] = useState(false);
   const [editNewsPhotoFile, setEditNewsPhotoFile] = useState<File | null>(null);
@@ -262,8 +324,6 @@ const AdminPage = () => {
     mutationFn: async () => {
       if (!editingNews) return;
       let photo_url = editingNews.photo_url;
-
-      // Загружаем новое фото если выбрано
       if (editNewsPhotoFile) {
         const ext = editNewsPhotoFile.name.split(".").pop();
         const path = `${crypto.randomUUID()}.${ext}`;
@@ -272,7 +332,6 @@ const AdminPage = () => {
         const { data: urlData } = supabase.storage.from("news").getPublicUrl(path);
         photo_url = urlData.publicUrl;
       }
-
       const { error } = await supabase
           .from("news")
           .update({ title: editingNews.title, body: editingNews.body, photo_url })
@@ -337,9 +396,7 @@ const AdminPage = () => {
                         <Select value={compForm.category} onValueChange={(v) => setCompForm({ ...compForm, category: v })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {AUDIENCES.map((a) => (
-                                <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                            ))}
+                            {AUDIENCES.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -403,7 +460,6 @@ const AdminPage = () => {
                   </DialogContent>
                 </Dialog>
               </div>
-
               <div className="space-y-3">
                 {competitions?.map((comp: any) => {
                   const status = getCompStatus(comp);
@@ -437,9 +493,7 @@ const AdminPage = () => {
                   <SelectTrigger className="w-[250px]"><SelectValue placeholder="Все конкурсы" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Все конкурсы</SelectItem>
-                    {competitions?.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-                    ))}
+                    {competitions?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -457,12 +511,19 @@ const AdminPage = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Select value={app.status} onValueChange={(v) => updateAppStatus.mutate({ id: app.id, status: v })}>
-                            <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                          {/* ← ИСПРАВЛЕНО: мгновенное отображение через pendingStatuses */}
+                          <Select
+                              value={pendingStatuses[app.id] ?? app.status ?? "pending"}
+                              onValueChange={(v) => {
+                                setPendingStatuses((prev) => ({ ...prev, [app.id]: v }));
+                                updateAppStatus.mutate({ id: app.id, status: v });
+                              }}
+                          >
+                            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="pending">На рассмотрении</SelectItem>
-                              <SelectItem value="approved">Одобрить</SelectItem>
-                              <SelectItem value="rejected">Отклонить</SelectItem>
+                              <SelectItem value="approved">Одобрено ✓</SelectItem>
+                              <SelectItem value="rejected">Отклонено ✗</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -474,44 +535,98 @@ const AdminPage = () => {
             </TabsContent>
 
             <TabsContent value="results">
-              <h2 className="font-display text-lg font-bold mb-4">Результаты и оценки</h2>
-              <div className="space-y-3">
-                {applications?.filter((a: any) => a.status === "approved").map((app: any) => (
-                    <ResultRow key={app.id} app={app} onAssign={assignPlace} />
-                ))}
+              <h2 className="font-display text-lg font-bold mb-4">Результаты по голосам</h2>
+              <div className="space-y-6">
+                {(() => {
+                  const approvedApplications = (applications || []).filter((a: any) => a.status === "approved");
+                  const competitionsMap = new Map<string, any[]>();
+
+                  approvedApplications.forEach((app: any) => {
+                    const competitionId = String(app.competition_id || "unknown");
+                    const votes = (likes || []).filter((l: any) => l.application_id === app.id).length;
+                    const enrichedApp = { ...app, votes };
+
+                    if (!competitionsMap.has(competitionId)) {
+                      competitionsMap.set(competitionId, []);
+                    }
+                    competitionsMap.get(competitionId)?.push(enrichedApp);
+                  });
+
+                  const groupedCompetitions = Array.from(competitionsMap.entries());
+
+                  return groupedCompetitions.map(([competitionId, compApps]) => {
+                    const rankedApps = compApps
+                        .sort((a: any, b: any) => b.votes - a.votes)
+                        .map((app: any, index: number) => ({ ...app, place: index + 1 }));
+
+                    return (
+                        <div key={competitionId} className="rounded-2xl border bg-card p-4">
+                          <h3 className="font-display text-base font-bold mb-4 text-foreground">
+                            {rankedApps[0]?.competitions?.title || "Конкурс без названия"}
+                          </h3>
+                          <div className="space-y-3">
+                            {rankedApps.map((app: any) => (
+                                <ResultRow key={app.id} app={app} onChangeVotes={changeVotes} />
+                            ))}
+                          </div>
+                        </div>
+                    );
+                  });
+                })()}
+
                 {!applications?.filter((a: any) => a.status === "approved").length && (
-                    <p className="text-muted-foreground text-sm">Нет одобренных заявок для оценки</p>
+                    <p className="text-muted-foreground text-sm">Нет одобренных заявок</p>
                 )}
               </div>
             </TabsContent>
 
             <TabsContent value="comments">
               <h2 className="font-display text-lg font-bold mb-4">Комментарии</h2>
+
+              {/* Комментарии к работам галереи */}
+              {!!galleryComments?.length && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">К работам галереи</h3>
+                    <div className="space-y-3">
+                      {galleryComments?.map((c: any) => (
+                          <div key={c.id} className="flex items-start justify-between rounded-xl border bg-card p-4">
+                            <div>
+                              <div className="text-xs text-muted-foreground mb-1">
+                                {new Date(c.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+                                {c.applications?.work_title && <> · <span className="text-primary">{c.applications.work_title}</span></>}
+                              </div>
+                              <p className="text-sm text-foreground">
+                                <span className="font-semibold">{c.author_name || "Аноним"}: </span>
+                                {c.content}
+                              </p>
+                            </div>
+                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteGalleryComment.mutate(c.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                      ))}
+                    </div>
+                  </div>
+              )}
+
+              {/* Комментарии к новостям */}
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">К новостям</h3>
               <div className="space-y-3">
                 {comments?.map((c: any) => (
                     <div key={c.id} className="flex items-start justify-between rounded-xl border bg-card p-4">
                       <div>
                         <div className="text-xs text-muted-foreground mb-1">
-                          {new Date(c.created_at).toLocaleDateString("ru-RU", {
-                            day: "numeric", month: "long", year: "numeric",
-                          })}
+                          {new Date(c.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
                           {c.news?.title && <> · <span className="text-primary">{c.news.title}</span></>}
                         </div>
                         <p className="text-sm text-foreground">{c.content}</p>
                       </div>
-                      <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => deleteComment.mutate(c.id)}
-                      >
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteComment.mutate(c.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                 ))}
-                {!comments?.length && (
-                    <p className="text-muted-foreground text-sm">Комментариев пока нет</p>
-                )}
+                {!comments?.length && !galleryComments?.length && <p className="text-muted-foreground text-sm">Комментариев пока нет</p>}
               </div>
             </TabsContent>
 
@@ -541,7 +656,6 @@ const AdminPage = () => {
                   </DialogContent>
                 </Dialog>
               </div>
-
               <div className="space-y-3">
                 {adminNews?.map((item: any) => (
                     <div key={item.id} className="flex items-center gap-4 rounded-xl border bg-card p-4">
@@ -558,11 +672,7 @@ const AdminPage = () => {
                         <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.body}</p>
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => { setEditingNews(item); setEditNewsPhotoFile(null); setEditNewsDialogOpen(true); }}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => { setEditingNews(item); setEditNewsPhotoFile(null); setEditNewsDialogOpen(true); }}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button size="sm" variant="destructive" onClick={() => deleteAdminNews.mutate(item.id)}>
@@ -576,7 +686,6 @@ const AdminPage = () => {
             </TabsContent>
           </Tabs>
 
-          {/* Диалог редактирования новости */}
           <Dialog open={editNewsDialogOpen} onOpenChange={(v) => { setEditNewsDialogOpen(v); if (!v) { setEditingNews(null); setEditNewsPhotoFile(null); } }}>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Редактировать новость</DialogTitle></DialogHeader>
@@ -592,33 +701,20 @@ const AdminPage = () => {
                     </div>
                     <div>
                       <Label>Фото</Label>
-                      {/* Превью текущего или нового фото */}
                       {(editNewsPhotoFile || editingNews.photo_url) && (
                           <div className="w-full aspect-video overflow-hidden rounded-lg mb-2 bg-muted">
-                            <img
-                                src={editNewsPhotoFile ? URL.createObjectURL(editNewsPhotoFile) : editingNews.photo_url}
-                                alt=""
-                                className="w-full h-full object-cover"
-                            />
+                            <img src={editNewsPhotoFile ? URL.createObjectURL(editNewsPhotoFile) : editingNews.photo_url} alt="" className="w-full h-full object-cover" />
                           </div>
                       )}
                       <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-muted-foreground/30 p-3 hover:bg-muted/50 transition-colors mt-1">
                         <Upload className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                      {editNewsPhotoFile ? editNewsPhotoFile.name : "Заменить фото..."}
-                    </span>
+                        <span className="text-sm text-muted-foreground">{editNewsPhotoFile ? editNewsPhotoFile.name : "Заменить фото..."}</span>
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => setEditNewsPhotoFile(e.target.files?.[0] || null)} />
                       </label>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1" onClick={() => { setEditNewsDialogOpen(false); setEditingNews(null); setEditNewsPhotoFile(null); }}>
-                        Отмена
-                      </Button>
-                      <Button
-                          className="flex-1"
-                          onClick={() => updateAdminNews.mutate()}
-                          disabled={updateAdminNews.isPending || !editingNews.title || !editingNews.body}
-                      >
+                      <Button variant="outline" className="flex-1" onClick={() => { setEditNewsDialogOpen(false); setEditingNews(null); setEditNewsPhotoFile(null); }}>Отмена</Button>
+                      <Button className="flex-1" onClick={() => updateAdminNews.mutate()} disabled={updateAdminNews.isPending || !editingNews.title || !editingNews.body}>
                         {updateAdminNews.isPending ? "Сохранение..." : "Сохранить"}
                       </Button>
                     </div>
@@ -626,30 +722,61 @@ const AdminPage = () => {
               )}
             </DialogContent>
           </Dialog>
-
         </div>
       </div>
   );
 };
 
-const ResultRow = ({ app, onAssign }: { app: any; onAssign: any }) => {
-  const [place, setPlace] = useState("");
-  const [score, setScore] = useState("");
+const ResultRow = ({ app, onChangeVotes }: { app: any; onChangeVotes: any }) => {
+  const [votes, setVotes] = useState(String(app.votes ?? 0));
+
+  const voteLabel = app.votes === 1 ? "голос" : app.votes >= 2 && app.votes <= 4 ? "голоса" : "голосов";
+
+  const placeLabel =
+      app.place === 1 ? "🥇 1 место" :
+          app.place === 2 ? "🥈 2 место" :
+              app.place === 3 ? "🥉 3 место" :
+                  `${app.place} место`;
 
   return (
-      <div className="flex items-center justify-between rounded-xl border bg-card p-4">
+      <div className="flex items-center justify-between rounded-xl border bg-card p-4 gap-4">
         <div>
           <div className="font-semibold text-sm">{app.work_title}</div>
           <div className="text-xs text-muted-foreground">
-            {app.participant_name} · {app.nomination} · {app.competitions?.title}
+            {app.participant_name} · {app.nomination}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Input placeholder="Место" type="number" className="w-20" value={place} onChange={(e) => setPlace(e.target.value)} />
-          <Input placeholder="Баллы" type="number" className="w-20" value={score} onChange={(e) => setScore(e.target.value)} />
-          <Button size="sm" onClick={() => onAssign.mutate({ applicationId: app.id, competitionId: app.competition_id, place: parseInt(place), score: parseFloat(score) })} disabled={!place}>
-            Сохранить
-          </Button>
+
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+        <span className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+          <Heart className="h-3 w-3 fill-primary" />
+          {app.votes} {voteLabel}
+        </span>
+
+          <span className="inline-flex rounded-lg border bg-muted px-3 py-1 text-xs font-semibold">
+          {placeLabel}
+        </span>
+
+          <div className="flex items-center gap-2">
+            <Input
+                placeholder="Голоса"
+                type="number"
+                min="0"
+                className="w-24"
+                value={votes}
+                onChange={(e) => setVotes(e.target.value)}
+            />
+            <Button
+                size="sm"
+                onClick={() => onChangeVotes.mutate({
+                  applicationId: app.id,
+                  currentVotes: app.votes,
+                  nextVotes: Math.max(0, parseInt(votes || "0")),
+                })}
+            >
+              Изменить
+            </Button>
+          </div>
         </div>
       </div>
   );

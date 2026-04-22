@@ -22,6 +22,8 @@ import TopPage from "./pages/TopPage";
 import NotFound from "./pages/NotFound";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ProfilePage from "@/pages/ProfilePage";
+import PaymentPageB from "@/pages/PaymentPageB";
+import ContactsPage from "@/pages/ContactsPage";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +49,8 @@ const App = () => (
                 <Route path="/news" element={<NewsPage />} />
                 <Route path="/agreement" element={<AgreementPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/payment" element={<PaymentPageB />} />
+                <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/top" element={<TopPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />

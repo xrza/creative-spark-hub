@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Calendar, Plus, X, Edit } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,18 @@ import { NewsComments } from "@/components/NewsComments";
 const NewsPage = () => {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const { hash } = useLocation();
+
+  // Скролл к нужной новости при переходе по якорной ссылке с главной страницы
+  useEffect(() => {
+    if (hash) {
+      const id = hash.replace("#", "");
+      const el = document.getElementById(id);
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+      }
+    }
+  }, [hash]);
 
   const { data: news, isLoading } = useQuery({
     queryKey: ["news"],
@@ -145,7 +158,7 @@ const NewsPage = () => {
           ) : (
               <div className="space-y-6">
                 {news.map((item) => (
-                    <article key={item.id} className="relative rounded-2xl border bg-card overflow-hidden shadow-sm">
+                    <article key={item.id} id={String(item.id)} className="relative rounded-2xl border bg-card overflow-hidden shadow-sm">
                       {/* Кнопки управления для админа */}
                       {isAdmin && (
                           <div className="absolute top-3 right-3 z-10 flex gap-2">

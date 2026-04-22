@@ -1,206 +1,289 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Star, Award, Palette, Users, ArrowRight, Calendar } from "lucide-react";
+import { Star, Award, Palette, Users, ArrowRight } from "lucide-react";
 import CompetitionCard from "@/components/CompetitionCard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import heroBanner from "@/assets/hero-banner.jpg";
 import trophyIcon from "@/assets/trophy-icon.png";
 
+interface CompetitionItem {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  nomination: string[] | null;
+  deadline: string | null;
+  start_date?: string | null;
+  entry_fee: number | null;
+  image_url: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface NewsItem {
+  id: string;
+  title: string;
+  body: string | null;
+  photo_url: string | null;
+  published_at: string | null;
+}
+
 const Index = () => {
-  const { data: competitions } = useQuery({
+  const { data: competitions } = useQuery<CompetitionItem[]>({
     queryKey: ["competitions-featured"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("competitions")
-        .select("*")
-        .in("status", ["active", "upcoming"])
-        .order("created_at", { ascending: false })
-        .limit(3);
+          .from("competitions")
+          .select("*")
+          .in("status", ["active", "upcoming"])
+          .order("created_at", { ascending: false })
+          .limit(3);
+
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
   });
 
-  const { data: latestNews } = useQuery({
+  const { data: latestNews } = useQuery<NewsItem[]>({
     queryKey: ["news-latest"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("news")
-        .select("*")
-        .order("published_at", { ascending: false })
-        .limit(3);
+          .from("news")
+          .select("*")
+          .order("published_at", { ascending: false })
+          .limit(3);
+
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
   });
 
-  const featured = competitions || [];
-  const news = latestNews || [];
+  const featured = competitions ?? [];
+  const news = latestNews ?? [];
 
   return (
-    <div>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-hero">
-        <div className="container relative z-10 py-16 md:py-24">
-          <div className="grid items-center gap-8 md:grid-cols-2">
-            <div className="animate-fade-in-up">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
-                <Star className="h-4 w-4" />
-                Творческая платформа №1
-              </div>
-              <h1 className="font-display text-4xl font-black leading-tight text-foreground md:text-5xl lg:text-6xl">
-                Раскройте{" "}
-                <span className="text-gradient-primary">талант</span>
-                {" "}вашего ребёнка
-              </h1>
-              <p className="mt-4 text-lg text-muted-foreground md:text-xl">
-                Студия Творчества — дистанционные творческие конкурсы для детей и педагогов.
-                Участвуйте из любой точки России, получайте дипломы и призы!
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button size="lg" asChild>
-                  <Link to="/competitions">
-                    Смотреть конкурсы
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <Link to="/register">Зарегистрироваться</Link>
-                </Button>
-              </div>
-
-              <div className="mt-10 flex gap-8">
-                {[
-                  { icon: Users, label: "участников", value: "5 000+" },
-                  { icon: Award, label: "конкурсов", value: "120+" },
-                  { icon: Palette, label: "работ", value: "15 000+" },
-                ].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="text-center">
-                    <Icon className="mx-auto mb-1 h-5 w-5 text-primary" />
-                    <div className="font-display text-xl font-black text-foreground">{value}</div>
-                    <div className="text-xs text-muted-foreground">{label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative hidden md:block">
-              <img src={heroBanner} alt="Дети рисуют и занимаются творчеством" className="rounded-3xl shadow-playful" width={1280} height={720} />
-              <img src={trophyIcon} alt="Кубок" className="absolute -bottom-6 -left-6 h-24 w-24 animate-float" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="py-16 md:py-20">
-        <div className="container">
-          <h2 className="text-center font-display text-3xl font-black text-foreground md:text-4xl">
-            Как это работает?
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
-            Участие в конкурсах — это просто! Всего 4 шага до победы
-          </p>
-
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { step: "01", title: "Выберите конкурс", desc: "Найдите подходящий конкурс для вашего ребёнка или педагогический конкурс", color: "bg-primary/10 text-primary" },
-              { step: "02", title: "Оплатите участие", desc: "Оплатите организационный взнос или используйте промокод", color: "bg-secondary/10 text-secondary" },
-              { step: "03", title: "Отправьте работу", desc: "Загрузите фото или видео с творческой работой", color: "bg-accent/20 text-accent-foreground" },
-              { step: "04", title: "Получите диплом", desc: "Дождитесь результатов и скачайте диплом победителя", color: "bg-success/10 text-success" },
-            ].map(({ step, title, desc, color }) => (
-              <div key={step} className="group rounded-2xl border bg-card p-6 transition-all duration-300 hover:shadow-playful hover:-translate-y-1">
-                <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl font-display text-lg font-black ${color}`}>
-                  {step}
+      <div>
+        {/* Hero Section */}
+        <section className="relative overflow-hidden bg-gradient-hero">
+          <div className="container relative z-10 py-16 md:py-24">
+            <div className="grid items-center gap-8 md:grid-cols-2">
+              <div className="animate-fade-in-up">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
+                  <Star className="h-4 w-4" />
+                  Творческая платформа №1
                 </div>
-                <h3 className="font-display text-base font-bold text-foreground">{title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Featured competitions */}
-      {featured.length > 0 && (
-        <section className="bg-muted/50 py-16 md:py-20">
-          <div className="container">
-            <div className="flex items-end justify-between mb-10">
-              <div>
-                <h2 className="font-display text-3xl font-black text-foreground md:text-4xl">Актуальные конкурсы</h2>
-                <p className="mt-2 text-muted-foreground">Примите участие прямо сейчас</p>
+                <h1 className="font-display text-4xl font-black leading-tight text-foreground md:text-5xl lg:text-6xl">
+                  Раскройте{" "}
+                  <span className="text-gradient-primary">талант</span>
+                  {" "}вашего ребёнка
+                </h1>
+
+                <p className="mt-4 text-lg text-muted-foreground md:text-xl">
+                  Студия Творчества — дистанционные творческие конкурсы для детей и педагогов.
+                  Участвуйте из любой точки России, получайте дипломы и призы!
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Button size="lg" asChild>
+                    <Link to="/competitions">
+                      Смотреть конкурсы
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button size="lg" variant="outline" asChild>
+                    <Link to="/register">Зарегистрироваться</Link>
+                  </Button>
+                </div>
+
+                <div className="mt-10 flex gap-8">
+                  {[
+                    { icon: Users, label: "участников", value: "5 000+" },
+                    { icon: Award, label: "конкурсов", value: "120+" },
+                    { icon: Palette, label: "работ", value: "15 000+" },
+                  ].map(({ icon: Icon, label, value }) => (
+                      <div key={label} className="text-center">
+                        <Icon className="mx-auto mb-1 h-5 w-5 text-primary" />
+                        <div className="font-display text-xl font-black text-foreground">{value}</div>
+                        <div className="text-xs text-muted-foreground">{label}</div>
+                      </div>
+                  ))}
+                </div>
               </div>
-              <Button variant="outline" asChild className="hidden sm:inline-flex">
-                <Link to="/competitions">Все конкурсы →</Link>
-              </Button>
+
+              <div className="relative hidden md:block">
+                <img
+                    src={heroBanner}
+                    alt="Дети рисуют и занимаются творчеством"
+                    className="rounded-3xl shadow-playful"
+                    width={1280}
+                    height={720}
+                />
+                <img
+                    src={trophyIcon}
+                    alt="Кубок"
+                    className="absolute -bottom-6 -left-6 h-24 w-24 animate-float"
+                />
+              </div>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {featured.map((comp) => (
-                <CompetitionCard key={comp.id} competition={comp} />
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section className="py-16 md:py-20">
+          <div className="container">
+            <h2 className="text-center font-display text-3xl font-black text-foreground md:text-4xl">
+              Как это работает?
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
+              Участие в конкурсах — это просто! Всего 4 шага до победы
+            </p>
+
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                {
+                  step: "01",
+                  title: "Выберите конкурс",
+                  desc: "Найдите подходящий конкурс для вашего ребёнка или педагогический конкурс",
+                  color: "bg-primary/10 text-primary",
+                },
+                {
+                  step: "02",
+                  title: "Оплатите участие",
+                  desc: "Оплатите организационный взнос или используйте промокод",
+                  color: "bg-secondary/10 text-secondary",
+                },
+                {
+                  step: "03",
+                  title: "Отправьте работу",
+                  desc: "Загрузите фото или видео с творческой работой",
+                  color: "bg-accent/20 text-accent-foreground",
+                },
+                {
+                  step: "04",
+                  title: "Получите диплом",
+                  desc: "Дождитесь результатов и скачайте диплом победителя",
+                  color: "bg-success/10 text-success",
+                },
+              ].map(({ step, title, desc, color }) => (
+                  <div
+                      key={step}
+                      className="group rounded-2xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-playful"
+                  >
+                    <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl font-display text-lg font-black ${color}`}>
+                      {step}
+                    </div>
+                    <h3 className="font-display text-base font-bold text-foreground">{title}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
+                  </div>
               ))}
             </div>
           </div>
         </section>
-      )}
 
-      {/* News Section */}
-      <section className="py-16 md:py-20">
-        <div className="container">
-          <div className="flex items-end justify-between mb-10">
-            <div>
-              <h2 className="font-display text-3xl font-black text-foreground md:text-4xl">Новости</h2>
-              <p className="mt-2 text-muted-foreground">Последние события и обновления</p>
-            </div>
-            <Button variant="outline" asChild className="hidden sm:inline-flex">
-              <Link to="/news">Все новости →</Link>
-            </Button>
-          </div>
-          {news.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2">
-              {news.map((item) => (
-                <div key={item.id} className="rounded-2xl border bg-card overflow-hidden transition-all hover:shadow-playful">
-                  {item.photo_url && (
-                    <img src={item.photo_url} alt={item.title} className="w-full aspect-video object-cover" loading="lazy" />
-                  )}
-                  <div className="p-5">
-                    <div className="text-xs text-muted-foreground mb-2">
-                      {new Date(item.published_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
-                    </div>
-                    <h3 className="font-display text-base font-bold text-foreground mb-2">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-3">{item.body}</p>
+        {/* Featured competitions */}
+        {featured.length > 0 && (
+            <section className="bg-muted/50 py-16 md:py-20">
+              <div className="container">
+                <div className="mb-10 flex items-end justify-between">
+                  <div>
+                    <h2 className="font-display text-3xl font-black text-foreground md:text-4xl">
+                      Актуальные конкурсы
+                    </h2>
+                    <p className="mt-2 text-muted-foreground">Примите участие прямо сейчас</p>
                   </div>
+                  <Button variant="outline" asChild className="hidden sm:inline-flex">
+                    <Link to="/competitions">Все конкурсы →</Link>
+                  </Button>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-10">Новостей пока нет</p>
-          )}
-        </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-16 md:py-20">
-        <div className="container">
-          <div className="rounded-3xl bg-gradient-to-br from-primary to-secondary p-10 text-center md:p-16">
-            <h2 className="font-display text-3xl font-black text-primary-foreground md:text-4xl">
-              Готовы к творчеству?
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">
-              Зарегистрируйтесь сейчас и участвуйте в конкурсах совершенно бесплатно с промокодом!
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Button size="lg" variant="secondary" asChild>
-                <Link to="/register">Принять участие</Link>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {featured.map((comp) => (
+                      <CompetitionCard key={comp.id} competition={comp} />
+                  ))}
+                </div>
+              </div>
+            </section>
+        )}
+
+        {/* News Section */}
+        <section className="py-16 md:py-20">
+          <div className="container">
+            <div className="mb-10 flex items-end justify-between">
+              <div>
+                <h2 className="font-display text-3xl font-black text-foreground md:text-4xl">Новости</h2>
+                <p className="mt-2 text-muted-foreground">Последние события и обновления</p>
+              </div>
+              <Button variant="outline" asChild className="hidden sm:inline-flex">
+                <Link to="/news">Все новости →</Link>
               </Button>
-              <Button size="lg" variant="secondary" asChild>
-                <Link to="/competitions">Посмотреть конкурсы</Link>
-              </Button>
+            </div>
+
+            {news.length > 0 ? (
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {news.map((item) => (
+                      <Link
+                          key={item.id}
+                          to={`/news#${item.id}`}
+                          className="block overflow-hidden rounded-2xl border bg-card transition-all hover:-translate-y-1 hover:shadow-playful"
+                      >
+                        {item.photo_url && (
+                            <img
+                                src={item.photo_url}
+                                alt={item.title}
+                                className="aspect-video w-full object-cover"
+                                loading="lazy"
+                            />
+                        )}
+                        <div className="p-5">
+                          <div className="mb-2 text-xs text-muted-foreground">
+                            {item.published_at
+                                ? new Date(item.published_at).toLocaleDateString("ru-RU", {
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric",
+                                })
+                                : "Дата не указана"}
+                          </div>
+                          <h3 className="mb-2 font-display text-base font-bold text-foreground">
+                            {item.title}
+                          </h3>
+                          <p className="line-clamp-3 text-sm text-muted-foreground">
+                            {item.body ?? "Без описания"}
+                          </p>
+                        </div>
+                      </Link>
+                  ))}
+                </div>
+            ) : (
+                <p className="py-10 text-center text-muted-foreground">Новостей пока нет</p>
+            )}
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-16 md:py-20">
+          <div className="container">
+            <div className="rounded-3xl bg-gradient-to-br from-primary to-secondary p-10 text-center md:p-16">
+              <h2 className="font-display text-3xl font-black text-primary-foreground md:text-4xl">
+                Готовы к творчеству?
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">
+                Зарегистрируйтесь сейчас и участвуйте в конкурсах совершенно бесплатно с промокодом!
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <Button size="lg" variant="secondary" asChild>
+                  <Link to="/register">Принять участие</Link>
+                </Button>
+                <Button size="lg" variant="secondary" asChild>
+                  <Link to="/competitions">Посмотреть конкурсы</Link>
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
   );
 };
 
